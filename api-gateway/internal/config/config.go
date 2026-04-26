@@ -21,7 +21,7 @@ func Load() *Config {
 		AppEnv:                getEnv("APP_ENV", "development"),
 		LogLevel:              getEnv("LOG_LEVEL", "debug"),
 		Port:                  getEnv("PORT", "8080"),
-		RedisURL:              getEnv("REDIS_URL", "redis:6379"),
+		RedisURL:              getEnv("REDIS_URL", "localhost:6379"),
 		JWTSecret:             getEnv("JWT_SECRET", "very-secret-key"),
 		UserServiceURL:        getEnv("USER_SERVICE_URL", "http://user-service:8081"),
 		MatchmakingServiceURL: getEnv("MATCHMAKING_SERVICE_URL", "http://matchmaking-service:8082"),

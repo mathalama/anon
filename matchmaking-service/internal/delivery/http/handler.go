@@ -27,6 +27,10 @@ func NewMatchHandler(r chi.Router, usecase domain.MatchUsecase) {
 
 func (h *MatchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	var req struct {
 		Filter domain.Filter `json:"filter"`
 	}
@@ -45,6 +49,10 @@ func (h *MatchHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 func (h *MatchHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	if err := h.usecase.Cancel(r.Context(), userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -54,6 +62,10 @@ func (h *MatchHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 
 func (h *MatchHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	room, err := h.usecase.GetStatus(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -73,6 +85,10 @@ func (h *MatchHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *MatchHandler) Next(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	if err := h.usecase.Next(r.Context(), userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

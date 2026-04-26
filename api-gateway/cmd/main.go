@@ -3,16 +3,19 @@ package main
 import (
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	_ "github.com/mathalama/nektokz/api-gateway/docs"
 	"github.com/mathalama/nektokz/api-gateway/internal/config"
 	gwMiddleware "github.com/mathalama/nektokz/api-gateway/internal/middleware"
 	"github.com/mathalama/nektokz/api-gateway/internal/proxy"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
@@ -34,25 +37,28 @@ func main() {
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			return true
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-User-ID"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
-	// Rate limiting stub
-	r.Use(gwMiddleware.InMemoryRateLimiter(100))
-
 	// Auth middleware (validation only)
 	r.Use(gwMiddleware.Auth(cfg.JWTSecret))
 
-	// Health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	// Rate limiting (Redis): 600 req/min anon, 1000 req/min auth
+	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 600, 1000)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to init redis rate limiter, falling back to in-memory")
+		r.Use(gwMiddleware.InMemoryRateLimiter(100))
+	} else {
+		defer rl.Close()
+		r.Use(rl.Middleware())
+	}
 
 	// Setup Proxy
 	p := proxy.NewProxy()
@@ -63,7 +69,25 @@ func main() {
 	p.AddTarget("/ws", cfg.ChatServiceURL)
 
 	// Proxy all requests
-	r.HandleFunc("/api/v1/*", p.Handler)
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(gwMiddleware.DenyInternal)
+
+		// Health check
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+		})
+
+		// Swagger
+		r.Get("/docs/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "./docs/swagger.yaml")
+		})
+		r.Get("/docs/*", httpSwagger.Handler(
+			httpSwagger.URL("/api/v1/docs/swagger.yaml"),
+		))
+
+		r.HandleFunc("/*", p.Handler)
+	})
 	r.HandleFunc("/ws", p.Handler)
 
 	log.Info().

@@ -28,6 +28,7 @@ type MatchRepository interface {
 	RemoveFromQueue(ctx context.Context, userID string) error
 	GetQueue(ctx context.Context) ([]*QueueEntry, error)
 	CreateRoom(ctx context.Context, room *Room) error
+	GetRoom(ctx context.Context, userID string) (*Room, error)
 }
 
 type UserClient interface {

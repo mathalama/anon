@@ -13,17 +13,25 @@ type matchUsecase struct {
 	repo       domain.MatchRepository
 	userClient domain.UserClient
 	chatClient domain.ChatClient
+	matchTimeoutSec    int
+	matchFilterDropSec int
 }
 
-func NewMatchUsecase(repo domain.MatchRepository, user domain.UserClient, chat domain.ChatClient) domain.MatchUsecase {
+func NewMatchUsecase(repo domain.MatchRepository, user domain.UserClient, chat domain.ChatClient, matchTimeoutSec, matchFilterDropSec int) domain.MatchUsecase {
 	return &matchUsecase{
 		repo:       repo,
 		userClient: user,
 		chatClient: chat,
+		matchTimeoutSec:    matchTimeoutSec,
+		matchFilterDropSec: matchFilterDropSec,
 	}
 }
 
 func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.Filter) error {
+	if filter.Gender == "" {
+		filter.Gender = "any"
+	}
+
 	// 1. Check ban
 	banned, err := u.userClient.IsBanned(ctx, userID)
 	if err != nil {
@@ -44,7 +52,7 @@ func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.
 	}
 
 	// 3. Try to find a match immediately
-	go u.RunMatching(ctx, entry)
+	go u.RunMatching(context.Background(), entry)
 
 	return nil
 }
@@ -55,7 +63,16 @@ func (u *matchUsecase) RunMatching(ctx context.Context, target *domain.QueueEntr
 	// Here we just try once for demonstration or use a simple timer.
 	
 	// Wait a bit or loop
-	for i := 0; i < 60; i++ { // Timeout after 60s
+	timeout := u.matchTimeoutSec
+	if timeout <= 0 {
+		timeout = 60
+	}
+	dropAfter := u.matchFilterDropSec
+	if dropAfter <= 0 {
+		dropAfter = 30
+	}
+
+	for i := 0; i < timeout; i++ { // Timeout after N seconds
 		time.Sleep(1 * time.Second)
 		
 		candidates, _ := u.repo.GetQueue(ctx)
@@ -78,10 +95,11 @@ func (u *matchUsecase) RunMatching(ctx context.Context, target *domain.QueueEntr
 			return
 		}
 
-		// Filter drop logic after 30s
-		if i == 30 {
+		// Filter drop logic after N seconds
+		if i == dropAfter {
 			target.Filter.Gender = "any"
 			target.Filter.Interests = nil
+			_ = u.repo.AddToQueue(ctx, target)
 		}
 	}
 }
@@ -91,15 +109,7 @@ func (u *matchUsecase) Cancel(ctx context.Context, userID string) error {
 }
 
 func (u *matchUsecase) GetStatus(ctx context.Context, userID string) (*domain.Room, error) {
-	// This would typically return the room ID if matched, or 'searching' status
-	// For simplicity, we just use the repo to check if the user is in a room
-	// Note: I need to add GetRoom to the repo interface if I want this to work properly
-	if repo, ok := u.repo.(interface {
-		GetRoom(ctx context.Context, userID string) (*domain.Room, error)
-	}); ok {
-		return repo.GetRoom(ctx, userID)
-	}
-	return nil, nil
+	return u.repo.GetRoom(ctx, userID)
 }
 
 func (u *matchUsecase) Next(ctx context.Context, userID string) error {

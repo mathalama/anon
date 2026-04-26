@@ -1,0 +1,4 @@
+CREATE DATABASE users_db;
+CREATE DATABASE chat_db;
+CREATE DATABASE moderation_db;
+

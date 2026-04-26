@@ -11,17 +11,21 @@ import (
 
 type UserHandler struct {
 	usecase domain.UserUsecase
+	internalToken string
 }
 
-func NewUserHandler(r chi.Router, usecase domain.UserUsecase) {
+func NewUserHandler(r chi.Router, usecase domain.UserUsecase, internalToken string) {
 	handler := &UserHandler{
-		usecase: usecase,
+		usecase:        usecase,
+		internalToken:  internalToken,
 	}
 
 	r.Route("/users", func(r chi.Router) {
 		r.Post("/anonymous", handler.CreateAnonymous)
 		r.Post("/register", handler.Register)
 		r.Post("/login", handler.Login)
+		r.Post("/auth/telegram", handler.LoginTelegram)
+		r.Post("/refresh", handler.Refresh)
 		
 		r.Group(func(r chi.Router) {
 			// Middleware for JWT would go here
@@ -97,6 +101,46 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *UserHandler) LoginTelegram(w http.ResponseWriter, r *http.Request) {
+	var req map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	access, refresh, err := h.usecase.LoginTelegram(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  access,
+		"refresh_token": refresh,
+	})
+}
+
+func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	access, refresh, err := h.usecase.Refresh(r.Context(), req.RefreshToken)
+	if err != nil {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"access_token":  access,
+		"refresh_token": refresh,
+	})
+}
+
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// In a real app, userID would come from JWT middleware
 	userID := r.Header.Get("X-User-ID")
@@ -134,6 +178,10 @@ func (h *UserHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetBanStatus(w http.ResponseWriter, r *http.Request) {
+	if !h.isInternalAuthorized(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	id := chi.URLParam(r, "id")
 	ban, active, err := h.usecase.GetBanStatus(r.Context(), id)
 	if err != nil {
@@ -148,6 +196,10 @@ func (h *UserHandler) GetBanStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) BanUser(w http.ResponseWriter, r *http.Request) {
+	if !h.isInternalAuthorized(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	var req struct {
 		UserID   string `json:"user_id"`
 		Reason   string `json:"reason"`
@@ -171,4 +223,11 @@ func (h *UserHandler) BanUser(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+func (h *UserHandler) isInternalAuthorized(r *http.Request) bool {
+	if h.internalToken == "" {
+		return false
+	}
+	return r.Header.Get("X-Internal-Token") == h.internalToken
 }

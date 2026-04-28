@@ -6,30 +6,47 @@ class ChatSocket {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 20;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
   private listeners: Map<string, Set<(payload: any) => void>> = new Map();
   private lastRoomId: string | null = null;
   private lastToken: string | null = null;
+  private isReconnecting = false;
 
   connect(roomId: string, token: string) {
     this.lastRoomId = roomId;
     this.lastToken = token;
 
-    if (this.ws) {
-      this.ws.close();
+    // Cancel any pending reconnect
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
+
+    if (this.ws) {
+      // Remove handlers before closing to prevent reconnect loop
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.onmessage = null;
+      this.ws.onopen = null;
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.isReconnecting = false;
+    this.stopHeartbeat();
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
     const finalUrl = `${wsUrl}?room_id=${roomId}&token=${token}`;
     console.log('Connecting to:', finalUrl);
-    
+
     this.ws = new WebSocket(finalUrl);
 
     this.ws.onopen = () => {
-  console.log('Connected to chat');
-  // Сбрасываем только после успешной работы, не сразу
-  setTimeout(() => { this.reconnectAttempts = 0; }, 5000);
-  this.startHeartbeat();
-};
+      console.log('Connected to chat');
+      this.isReconnecting = false;
+      this.reconnectAttempts = 0;
+      this.startHeartbeat();
+    };
 
     this.ws.onmessage = (e) => {
       try {
@@ -42,24 +59,29 @@ class ChatSocket {
     };
 
     this.ws.onclose = (e) => {
-  console.log('Disconnected from chat', e.code, e.reason);
-  this.stopHeartbeat();
+      console.log('Disconnected from chat', e.code, e.reason);
+      this.stopHeartbeat();
 
-  const status = useChatStore.getState().status;
-  if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
-    this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
-    console.log(`Attempting reconnect ${this.reconnectAttempts} in ${delay}ms...`);
-    setTimeout(() => {
-      if (this.lastRoomId && this.lastToken) {
-        this.connect(this.lastRoomId, this.lastToken);
+      // Prevent multiple simultaneous reconnect loops
+      if (this.isReconnecting) return;
+
+      const status = useChatStore.getState().status;
+      if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.isReconnecting = true;
+        this.reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
+        console.log(`Attempting reconnect ${this.reconnectAttempts} in ${delay}ms...`);
+        this.reconnectTimeout = setTimeout(() => {
+          this.isReconnecting = false;
+          if (this.lastRoomId && this.lastToken) {
+            this.connect(this.lastRoomId, this.lastToken);
+          }
+        }, delay);
+      } else if (status !== 'idle' && status !== 'ended') {
+        useChatStore.getState().setStatus('ended');
+        useChatStore.getState().setEndReason('disconnect');
       }
-    }, delay);
-  } else if (status !== 'idle') {
-    useChatStore.getState().setStatus('ended');
-    useChatStore.getState().setEndReason('disconnect');
-  }
-};
+    };
 
     this.ws.onerror = (err) => {
       console.error('WS Error', err);
@@ -102,8 +124,6 @@ class ChatSocket {
   send(content: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'message', content }));
-      // Removed local addition to prevent duplication. 
-      // Server will broadcast it back to us.
     }
   }
 
@@ -142,8 +162,18 @@ class ChatSocket {
   }
 
   disconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     this.stopHeartbeat();
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
     if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.onerror = null;
+      this.ws.onmessage = null;
+      this.ws.onopen = null;
       this.ws.close();
       this.ws = null;
     }

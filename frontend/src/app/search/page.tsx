@@ -7,9 +7,11 @@ import { User, MessageSquare, Mic, Search as SearchIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { api } from '@/lib/api';
+import { useChatStore } from '@/store/chatStore';
 
 export default function SearchPage() {
   const router = useRouter();
+  const reset = useChatStore(s => s.reset);
   const {
     status, startSearch, cancelSearch,
     myGender, selectedGender, selectedMode,
@@ -17,6 +19,11 @@ export default function SearchPage() {
   } = useChat();
 
   const canStart = myGender !== '' && selectedGender !== '' && selectedMode !== '';
+
+  // Reset stale chat state (mode, roomId, messages, etc.) when landing on search page
+  useEffect(() => {
+    reset();
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const init = async () => {

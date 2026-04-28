@@ -12,21 +12,36 @@ export function useVoiceCall() {
   const isStartingRef = useRef(false);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const iceQueue = useRef<RTCIceCandidateInit[]>([]);
+  // Track if we've already processed an offer for the current WS session
+  const handlingOfferRef = useRef(false);
 
-  const cleanup = useCallback(() => {
+  const closePeerConnection = useCallback(() => {
     if (pcRef.current) {
+      pcRef.current.onicecandidate = null;
+      pcRef.current.ontrack = null;
+      pcRef.current.oniceconnectionstatechange = null;
+      pcRef.current.onconnectionstatechange = null;
       pcRef.current.close();
       pcRef.current = null;
     }
+    iceQueue.current = [];
+    handlingOfferRef.current = false;
+  }, []);
+
+  const cleanup = useCallback(() => {
+    closePeerConnection();
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
-    iceQueue.current = [];
     setCallState('idle');
-  }, []);
+  }, [closePeerConnection]);
 
   const createPeerConnection = useCallback(() => {
+    // Always close existing PC first
+    closePeerConnection();
+
     const configuration: RTCConfiguration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -67,7 +82,6 @@ export function useVoiceCall() {
           break;
         case 'disconnected':
         case 'failed':
-          // Handled by ICE restart, but if it stays failed:
           setCallState('error');
           break;
         case 'closed':
@@ -77,20 +91,12 @@ export function useVoiceCall() {
     };
 
     return pc;
-  }, []);
-
-  const iceQueue = useRef<RTCIceCandidateInit[]>([]);
+  }, [closePeerConnection]);
 
   const startCall = useCallback(async () => {
     if (callState === 'connected') return;
-    
+
     try {
-      if (pcRef.current) {
-        console.log('Cleaning up old connection before startCall');
-        pcRef.current.close();
-      }
-      iceQueue.current = [];
-      
       setCallState('calling');
       let stream = localStreamRef.current;
       if (!stream) {
@@ -101,7 +107,7 @@ export function useVoiceCall() {
       const pc = createPeerConnection();
       pcRef.current = pc;
 
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      stream.getTracks().forEach(track => pc.addTrack(track, stream!));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -113,7 +119,7 @@ export function useVoiceCall() {
       console.error('Failed to start call', err);
       setCallState('error');
     }
-  }, [createPeerConnection]);
+  }, [createPeerConnection, callState]);
 
   const endCall = useCallback(() => {
     chatSocket.sendRTC('call:end', {});
@@ -130,154 +136,156 @@ export function useVoiceCall() {
     }
   }, []);
 
+  // Initiator: start call when chatting begins
   useEffect(() => {
     let retryInterval: NodeJS.Timeout;
-    
+
     if (mode === 'voice' && status === 'chatting' && isInitiator && !isStartingRef.current && callState === 'idle') {
       isStartingRef.current = true;
-      
+
       const startFast = async () => {
-        // Start mic and call in parallel
-        const micPromise = (async () => {
-          if (!localStreamRef.current) {
-            try {
-              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-              localStreamRef.current = stream;
-              console.log('Mic ready');
-              return stream;
-            } catch (e) {
-              console.error('Mic failed', e);
-            }
+        if (!localStreamRef.current) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            localStreamRef.current = stream;
+            console.log('Mic ready');
+          } catch (e) {
+            console.error('Mic failed', e);
           }
-          return localStreamRef.current;
-        })();
+        }
 
         console.log('Voice session: Fast start initiated');
         await startCall();
-        
+
         retryInterval = setInterval(async () => {
-          if (pcRef.current && (pcRef.current.connectionState === 'failed' || pcRef.current.connectionState === 'disconnected')) {
+          if (
+            pcRef.current &&
+            (pcRef.current.connectionState === 'failed' || pcRef.current.connectionState === 'disconnected')
+          ) {
             console.log('Connection dropped: aggressive retry...');
             await startCall();
           }
         }, 3000);
       };
-      
+
       startFast();
     } else if (mode === 'voice' && status === 'chatting' && !isInitiator && !localStreamRef.current) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        localStreamRef.current = stream;
-        console.log('Receiver mic ready early');
-      }).catch(e => console.error('Receiver mic failed', e));
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          localStreamRef.current = stream;
+          console.log('Receiver mic ready early');
+        })
+        .catch(e => console.error('Receiver mic failed', e));
     }
-    
+
     return () => {
       clearInterval(retryInterval);
       isStartingRef.current = false;
     };
   }, [mode, status, isInitiator, startCall, callState]);
 
-
+  // Handle incoming RTC messages
   useEffect(() => {
-  if (mode !== 'voice' || status === 'idle' || status === 'searching') return;
+    if (mode !== 'voice' || status === 'idle' || status === 'searching') return;
 
-  const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-    if (callState === 'connected') {
-      console.log('Ignoring offer - already connected');
-      return;
-    }
-
-    console.log('Received RTC Offer');
-
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-
-    iceQueue.current = [];
-
-    const pc = createPeerConnection();
-    pcRef.current = pc;
-
-    try {
-      let stream = localStreamRef.current;
-      if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStreamRef.current = stream;
+    const handleOffer = async (offer: RTCSessionDescriptionInit) => {
+      // Guard: don't process an offer if we're already handling one or connected
+      if (handlingOfferRef.current) {
+        console.log('Already handling an offer, ignoring duplicate');
+        return;
       }
-      stream.getTracks().forEach(track => pc.addTrack(track, stream!));
+      if (callState === 'connected') {
+        console.log('Ignoring offer - already connected');
+        return;
+      }
 
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+      console.log('Received RTC Offer');
+      handlingOfferRef.current = true;
 
-      console.log('Sending RTC Answer');
-      chatSocket.sendRTC('rtc:answer', answer);
+      const pc = createPeerConnection();
+      pcRef.current = pc;
 
-      console.log(`Processing ${iceQueue.current.length} queued ICE candidates`);
-      for (const candidate of iceQueue.current) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) {
-          console.error('Error adding queued candidate', e);
+      try {
+        let stream = localStreamRef.current;
+        if (!stream) {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          localStreamRef.current = stream;
         }
+        stream.getTracks().forEach(track => pc.addTrack(track, stream!));
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        console.log('Sending RTC Answer');
+        chatSocket.sendRTC('rtc:answer', answer);
+
+        console.log(`Processing ${iceQueue.current.length} queued ICE candidates`);
+        for (const candidate of iceQueue.current) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('Error adding queued candidate', e);
+          }
+        }
+        iceQueue.current = [];
+      } catch (e) {
+        console.error('Error handling offer', e);
+        handlingOfferRef.current = false;
       }
-      iceQueue.current = [];
-    } catch (e) {
-      console.error('Error handling offer', e);
-    }
-  };
+    };
 
-  const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-    if (!pcRef.current || pcRef.current.signalingState !== 'have-local-offer') {
-      console.log('Ignoring answer - wrong state:', pcRef.current?.signalingState);
-      return;
-    }
+    const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
+      const pc = pcRef.current;
+      if (!pc || pc.signalingState !== 'have-local-offer') {
+        console.log('Ignoring answer - wrong state:', pc?.signalingState);
+        return;
+      }
 
-    console.log('Received RTC Answer');
-    try {
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-    } catch (e) {
-      console.error('Error setting remote answer', e);
-    }
-  };
+      console.log('Received RTC Answer');
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+      } catch (e) {
+        console.error('Error setting remote answer', e);
+      }
+    };
 
-  const handleCandidate = async (payload: RTCIceCandidateInit) => {
-    const pc = pcRef.current;
+    const handleCandidate = async (payload: RTCIceCandidateInit) => {
+      const pc = pcRef.current;
 
-    if (!pc || pc.signalingState === 'closed') {
-      return;
-    }
+      if (!pc || pc.signalingState === 'closed') {
+        return;
+      }
 
-    if (!pc.remoteDescription) {
-      console.log('Queueing ICE candidate');
-      iceQueue.current.push(payload);
-      return;
-    }
+      if (!pc.remoteDescription) {
+        console.log('Queueing ICE candidate', iceQueue.current.length);
+        iceQueue.current.push(payload);
+        return;
+      }
 
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(payload));
-    } catch (e) {
-      console.error('Error adding ice candidate', e);
-    }
-  };
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(payload));
+      } catch (e) {
+        console.error('Error adding ice candidate', e);
+      }
+    };
 
-  const handleCallEnd = () => {
-    cleanup();
-  };
+    const handleCallEnd = () => {
+      cleanup();
+    };
 
-  chatSocket.onMessage('rtc:offer', handleOffer);
-  chatSocket.onMessage('rtc:answer', handleAnswer);
-  chatSocket.onMessage('rtc:ice-candidate', handleCandidate);
-  chatSocket.onMessage('call:end', handleCallEnd);
+    chatSocket.onMessage('rtc:offer', handleOffer);
+    chatSocket.onMessage('rtc:answer', handleAnswer);
+    chatSocket.onMessage('rtc:ice-candidate', handleCandidate);
+    chatSocket.onMessage('call:end', handleCallEnd);
 
-  return () => {
-    chatSocket.offMessage('rtc:offer', handleOffer);
-    chatSocket.offMessage('rtc:answer', handleAnswer);
-    chatSocket.offMessage('rtc:ice-candidate', handleCandidate);
-    chatSocket.offMessage('call:end', handleCallEnd);
-  };
-}, [mode, status, createPeerConnection, cleanup, callState]);
+    return () => {
+      chatSocket.offMessage('rtc:offer', handleOffer);
+      chatSocket.offMessage('rtc:answer', handleAnswer);
+      chatSocket.offMessage('rtc:ice-candidate', handleCandidate);
+      chatSocket.offMessage('call:end', handleCallEnd);
+    };
+  }, [mode, status, createPeerConnection, cleanup, callState]);
 
   // Handle room end
   useEffect(() => {

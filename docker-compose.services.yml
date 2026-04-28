@@ -1,6 +1,6 @@
 services:
   api-gateway:
-    image: ${API_GATEWAY_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/api-gateway:latest}
+    image: ${API_GATEWAY_IMAGE:-ghcr.io/mathalama/api-gateway:latest}
     build:
       context: ./api-gateway
     container_name: nektokz-gateway
@@ -40,7 +40,7 @@ services:
       - nektokz-network
 
   user-service:
-    image: ${USER_SERVICE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/user-service:latest}
+    image: ${USER_SERVICE_IMAGE:-ghcr.io/mathalama/user-service:latest}
     build:
       context: ./user-service
     container_name: nektokz-user
@@ -67,7 +67,7 @@ services:
       - nektokz-network
 
   matchmaking-service:
-    image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/matchmaking-service:latest}
+    image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
     build:
       context: ./matchmaking-service
     container_name: nektokz-matchmaking
@@ -95,7 +95,7 @@ services:
       - nektokz-network
 
   chat-service:
-    image: ${CHAT_SERVICE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/chat-service:latest}
+    image: ${CHAT_SERVICE_IMAGE:-ghcr.io/mathalama/chat-service:latest}
     build:
       context: ./chat-service
     container_name: nektokz-chat
@@ -123,7 +123,7 @@ services:
       - nektokz-network
 
   moderation-service:
-    image: ${MODERATION_SERVICE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/moderation-service:latest}
+    image: ${MODERATION_SERVICE_IMAGE:-ghcr.io/mathalama/moderation-service:latest}
     build:
       context: ./moderation-service
     container_name: nektokz-moderation
@@ -152,7 +152,7 @@ services:
       - nektokz-network
 
   notification-service:
-    image: ${NOTIFICATION_SERVICE_IMAGE:-ghcr.io/${GITHUB_REPOSITORY_OWNER}/notification-service:latest}
+    image: ${NOTIFICATION_SERVICE_IMAGE:-ghcr.io/mathalama/notification-service:latest}
     build:
       context: ./notification-service
     container_name: nektokz-notification

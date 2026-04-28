@@ -7,6 +7,10 @@ on:
       - "matchmaking-service/**"
       - "docker-compose.services.yml"
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   run-deploy:
     uses: ./.github/workflows/deploy-template.yml

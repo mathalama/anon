@@ -2,7 +2,7 @@ name: Deploy Notification Service
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev"]
     paths:
       - "notification-service/**"
       - "docker-compose.services.yml"

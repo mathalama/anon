@@ -2,7 +2,7 @@ name: Deploy Chat Service
 
 on:
   push:
-    branches: ["main"]
+    branches: ["dev"]
     paths:
       - "chat-service/**"
       - "docker-compose.services.yml"

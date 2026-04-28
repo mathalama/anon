@@ -62,11 +62,12 @@ export function useChat() {
           console.log('useChat: Match confirmed! RoomID:', data.room_id);
           connectedRoomRef.current = data.room_id;
 
-          store.setMode(data.mode || 'text');
-          store.setIsInitiator(!!data.is_initiator);
-          store.setPartnerGender(data.partner_gender || 'unknown');
-          store.setRoomId(data.room_id);
-          store.setStatus('matched');
+          store.setMatchData({
+            roomId: data.room_id,
+            mode: data.mode || 'text',
+            isInitiator: !!data.is_initiator,
+            partnerGender: data.partner_gender || 'unknown',
+          });
 
           const t = localStorage.getItem('access_token') || '';
           chatSocket.connect(data.room_id, t);

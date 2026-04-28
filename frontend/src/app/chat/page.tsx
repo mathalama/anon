@@ -30,6 +30,10 @@ export default function ChatPage() {
     if (status === 'idle') {
       router.push('/');
     }
+    if (status === 'ended') {
+        // показать уведомление и редиректнуть
+        router.push('/search');
+    }
   }, [status, router]);
 
   useEffect(() => {
@@ -60,7 +64,7 @@ export default function ChatPage() {
   const handleEndCall = () => {
     endCall();
     next();
-    router.push('/');
+    router.push('/search');
   };
 
   return (

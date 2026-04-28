@@ -1,0 +1,24 @@
+name: Deploy User Service
+
+on:
+  push:
+    branches: ["main"] # Укажи ветку, деплой с которой должен идти на сервер (main или master)
+    paths:
+      - "user-service/**"
+      - "docker-compose.services.yml"
+
+jobs:
+  run-deploy:
+    uses: ./.github/workflows/deploy-template.yml
+    with:
+      service_folder: "user-service"         # Папка с кодом
+      image_name: "user-service"             # Имя образа в GHCR
+      compose_service: "user-service"        # Имя сервиса внутри docker-compose
+      env_image_var: "USER_SERVICE_IMAGE"    # Переменная, которую мы добавили на 1 шаге
+    secrets:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}

@@ -43,6 +43,10 @@ func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.
 		return errors.New("user is banned")
 	}
 
+	if err := u.repo.DeleteRoom(ctx, userID); err != nil {
+		log.Printf("Warning: failed to delete old room for %s: %v", userID, err)
+	}
+
 	// 2. Remove old queue entry first (clears stale mode/filter from previous search)
 	if err := u.repo.RemoveFromQueue(ctx, userID); err != nil {
 		log.Printf("MATCHMAKING: Warning - failed to remove old queue entry for %s: %v", userID, err)
@@ -156,7 +160,7 @@ func (u *matchUsecase) GetStatus(ctx context.Context, userID string) (*domain.Ro
 }
 
 func (u *matchUsecase) Next(ctx context.Context, userID string) error {
-    return u.repo.RemoveFromQueue(ctx, userID) // просто убираем из очереди
+	return u.repo.RemoveFromQueue(ctx, userID) // просто убираем из очереди
 }
 func (u *matchUsecase) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
 	return u.repo.SubscribeToMatch(ctx, userID)

@@ -92,6 +92,13 @@ func (r *InMemoryMatchRepository) SubscribeToMatch(ctx context.Context, userID s
 	return ch, cleanup, nil
 }
 
+func (r *InMemoryMatchRepository) DeleteRoom(ctx context.Context, userID string) error {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    delete(r.rooms, userID)
+    return nil
+}
+
 func (r *InMemoryMatchRepository) HealthCheck(ctx context.Context) error {
 	return nil
 }

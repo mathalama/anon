@@ -23,9 +23,9 @@ func New(r chi.Router, uc domain.ModerationUsecase, internalToken string) {
 		r.Route("/admin", func(r chi.Router) {
 			r.Get("/reports", h.ListReports)
 		})
-
-		r.Post("/moderate/message", h.ModerateMessage)
 	})
+
+	r.Post("/moderate/message", h.ModerateMessage)
 
 	r.Get("/health", h.Health)
 }

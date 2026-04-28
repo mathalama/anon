@@ -66,6 +66,14 @@ class ChatSocket {
       if (this.isReconnecting) return;
 
       const status = useChatStore.getState().status;
+
+      // код 1006 = аномальное закрытие = партнёр вышел
+      if (e.code === 1006 && status === 'chatting') {
+        useChatStore.getState().setStatus('ended');
+        useChatStore.getState().setEndReason('disconnect');
+        return; // не реконнектимся
+      }
+
       if (status !== 'idle' && status !== 'ended' && status !== 'matched' && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.isReconnecting = true;
         this.reconnectAttempts++;
@@ -138,6 +146,8 @@ class ChatSocket {
       this.ws.send(JSON.stringify({ type: 'next' }));
     }
     this.disconnect();
+    useChatStore.getState().setMode(null);
+    useChatStore.getState().setRoomId(null);
     useChatStore.getState().setEndReason('next');
   }
 

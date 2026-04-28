@@ -19,6 +19,12 @@ interface ChatStore extends ChatState {
   addMessage: (message: Message) => void;
   setPartnerTyping: (isTyping: boolean) => void;
   setEndReason: (reason: 'next' | 'disconnect' | 'ban' | null) => void;
+  setMatchData: (data: {
+    roomId: string;
+    mode: 'text' | 'voice';
+    isInitiator: boolean;
+    partnerGender: string;
+  }) => void;
   reset: () => void;
 }
 
@@ -46,6 +52,16 @@ export const useChatStore = create<ChatStore>((set) => ({
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   setPartnerTyping: (isTyping) => set({ isPartnerTyping: isTyping }),
   setEndReason: (reason) => set({ endReason: reason }),
+  setMatchData: (data) => set({
+    roomId: data.roomId,
+    mode: data.mode,
+    isInitiator: data.isInitiator,
+    partnerGender: data.partnerGender,
+    messages: [],
+    isPartnerTyping: false,
+    endReason: null,
+    status: 'matched',
+  }),
   reset: () => set({ 
     status: 'idle', roomId: null, messages: [], 
     isPartnerTyping: false, endReason: null, mode: null, 
@@ -53,3 +69,5 @@ export const useChatStore = create<ChatStore>((set) => ({
     selectedMode: '', myGender: ''
   }),
 }));
+
+

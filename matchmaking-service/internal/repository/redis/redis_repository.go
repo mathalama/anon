@@ -255,6 +255,27 @@ func (r *RedisMatchRepository) SubscribeToMatch(ctx context.Context, userID stri
 	return ch, cleanup, nil
 }
 
+func (r *RedisMatchRepository) DeleteRoom(ctx context.Context, userID string) error {
+	// получаем roomID по userID
+	roomID, err := r.rdb.Get(ctx, userRoomPref+userID).Result()
+	if err != nil {
+		return nil // комнаты нет — ок
+	}
+
+	// получаем данные комнаты чтобы найти второго участника
+	m, err := r.rdb.HGetAll(ctx, roomKeyPref+roomID).Result()
+	if err != nil || len(m) == 0 {
+		r.rdb.Del(ctx, userRoomPref+userID)
+		return nil
+	}
+
+	// удаляем ключи обоих участников и саму комнату
+	r.rdb.Del(ctx, userRoomPref+m["user_a"])
+	r.rdb.Del(ctx, userRoomPref+m["user_b"])
+	r.rdb.Del(ctx, roomKeyPref+roomID)
+	return nil
+}
+
 func parseRedisOptions(redisURL string) (*goredis.Options, error) {
 	if strings.HasPrefix(redisURL, "redis://") || strings.HasPrefix(redisURL, "rediss://") {
 		return goredis.ParseURL(redisURL)

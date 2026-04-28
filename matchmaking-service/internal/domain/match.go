@@ -40,6 +40,7 @@ type MatchRepository interface {
 	GetQueue(ctx context.Context) ([]*QueueEntry, error)
 	CreateRoom(ctx context.Context, room *Room) error
 	GetRoom(ctx context.Context, userID string) (*Room, error)
+	DeleteRoom(ctx context.Context, userID string) error
 	PublishMatch(ctx context.Context, userID string, match *MatchFound) error
 	SubscribeToMatch(ctx context.Context, userID string) (<-chan *MatchFound, func(), error)
 	HealthCheck(ctx context.Context) error

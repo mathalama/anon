@@ -51,19 +51,22 @@ func (h *Hub) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case client := <-h.register:
-			h.mu.Lock()
-			h.clients[client.UserID] = client
-			if _, ok := h.rooms[client.RoomID]; !ok {
-				h.rooms[client.RoomID] = make(map[string]struct{})
+    		h.mu.Lock()
+    		h.clients[client.UserID] = client
+    		if _, ok := h.rooms[client.RoomID]; !ok {
+        		h.rooms[client.RoomID] = make(map[string]struct{})
 			}
-			h.rooms[client.RoomID][client.UserID] = struct{}{}
-			count := len(h.rooms[client.RoomID])
-			h.mu.Unlock()
+    		h.rooms[client.RoomID][client.UserID] = struct{}{}
+    		count := len(h.rooms[client.RoomID])
+    		h.mu.Unlock()
 
-			// When the second user connects to the room, notify both.
-			if count >= 2 {
-				h.BroadcastToRoom(client.RoomID, "", ServerMessage{Type: "partner_connected", Timestamp: time.Now().Unix()})
-			}
+    		if count >= 2 {
+        		// отправляем ОБОИМ — и новому и тому кто уже ждал
+        		h.BroadcastToRoom(client.RoomID, "", ServerMessage{
+            		Type:      "partner_connected",
+            		Timestamp: time.Now().Unix(),
+        		})
+    		}
 
 		case client := <-h.unregister:
 			roomID := client.RoomID

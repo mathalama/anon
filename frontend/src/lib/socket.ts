@@ -66,7 +66,7 @@ class ChatSocket {
       if (this.isReconnecting) return;
 
       const status = useChatStore.getState().status;
-      if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
+      if (status !== 'idle' && status !== 'ended' && status !== 'matched' && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.isReconnecting = true;
         this.reconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);

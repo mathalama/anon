@@ -3,18 +3,21 @@ package redis
 import (
 	"context"
 	"sync"
+
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 )
 
 type InMemoryMatchRepository struct {
-	mu     sync.RWMutex
-	queue  []*domain.QueueEntry
-	rooms  map[string]*domain.Room // userID -> Room
+	mu          sync.RWMutex
+	queue       []*domain.QueueEntry
+	rooms       map[string]*domain.Room
+	subscribers map[string]chan *domain.MatchFound
 }
 
 func NewInMemoryMatchRepository() *InMemoryMatchRepository {
 	return &InMemoryMatchRepository{
-		rooms: make(map[string]*domain.Room),
+		rooms:       make(map[string]*domain.Room),
+		subscribers: make(map[string]chan *domain.MatchFound),
 	}
 }
 
@@ -60,13 +63,33 @@ func (r *InMemoryMatchRepository) GetRoom(ctx context.Context, userID string) (*
 	}
 	return room, nil
 }
- 
+
 func (r *InMemoryMatchRepository) PublishMatch(ctx context.Context, userID string, match *domain.MatchFound) error {
+	r.mu.RLock()
+	ch, ok := r.subscribers[userID]
+	r.mu.RUnlock()
+	if ok {
+		select {
+		case ch <- match:
+		default:
+		}
+	}
 	return nil
 }
- 
+
 func (r *InMemoryMatchRepository) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
-	return nil, func() {}, nil
+	ch := make(chan *domain.MatchFound, 1)
+	r.mu.Lock()
+	r.subscribers[userID] = ch
+	r.mu.Unlock()
+
+	cleanup := func() {
+		r.mu.Lock()
+		delete(r.subscribers, userID)
+		r.mu.Unlock()
+		close(ch)
+	}
+	return ch, cleanup, nil
 }
 
 func (r *InMemoryMatchRepository) HealthCheck(ctx context.Context) error {

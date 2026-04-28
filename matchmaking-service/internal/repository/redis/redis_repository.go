@@ -111,7 +111,7 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 		userID := it.Member.(string)
 		m, err := cmds[i].Result()
 		
-		filter := domain.Filter{Gender: "any"}
+		filter := domain.Filter{Gender: "any", Mode: "text"}
 		if err == nil && len(m) > 0 {
 			if s := m["interests"]; s != "" {
 				_ = json.Unmarshal([]byte(s), &filter.Interests)

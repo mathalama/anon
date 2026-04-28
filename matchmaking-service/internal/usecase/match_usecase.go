@@ -108,6 +108,9 @@ func (u *matchUsecase) RunMatching(ctx context.Context) {
 				}
 
 				if IsCompatible(userA.Filter, userB.Filter) {
+					if mode == "" {
+						continue // skip entries with no mode
+					}
 					roomID := uuid.New().String()
 					room := &domain.Room{
 						ID:        roomID,
@@ -153,11 +156,8 @@ func (u *matchUsecase) GetStatus(ctx context.Context, userID string) (*domain.Ro
 }
 
 func (u *matchUsecase) Next(ctx context.Context, userID string) error {
-	// End current room and start new search
-	// For MVP, just start a new search
-	return u.Search(ctx, userID, domain.Filter{Gender: "any"})
+    return u.repo.RemoveFromQueue(ctx, userID) // просто убираем из очереди
 }
-
 func (u *matchUsecase) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
 	return u.repo.SubscribeToMatch(ctx, userID)
 }

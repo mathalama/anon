@@ -186,7 +186,7 @@ export function useVoiceCall() {
 
   // Handle incoming RTC messages
   useEffect(() => {
-    if (mode !== 'voice' || status === 'idle' || status === 'searching') return;
+    if (!mode || mode !== 'voice' || status === 'idle' || status === 'searching') return;
 
     const handleOffer = async (offer: RTCSessionDescriptionInit) => {
       // Guard: don't process an offer if we're already handling one or connected

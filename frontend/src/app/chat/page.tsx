@@ -66,7 +66,7 @@ export default function ChatPage() {
   return (
     <main className="flex flex-col h-screen bg-[#f0f2f5] dark:bg-[#121212]">
       {/* Simple Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1c1c1c] border-b border-gray-200 dark:border-gray-800 shadow-sm">
+      <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#1c1c1c] border-b border-gray-200 dark:border-gray-800 shadow-sm z-20 relative">
         <div className="flex items-center space-x-3">
           <button onClick={handleEndCall} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
             <ChevronLeft className="w-6 h-6" />
@@ -100,8 +100,10 @@ export default function ChatPage() {
 
       {/* Chat Content */}
       <div className="flex-1 relative overflow-hidden flex flex-col">
+        
+        {/* Voice Call Overlay */}
         {mode === 'voice' && (
-          <div className="absolute inset-0 z-10 bg-white dark:bg-[#1c1c1c]">
+          <div className="absolute inset-0 z-10 bg-white dark:bg-[#1c1c1c] flex flex-col">
             <VoiceCallUI 
               callState={callState}
               isMuted={isMuted}
@@ -134,7 +136,8 @@ export default function ChatPage() {
                     : "bg-white dark:bg-[#1c1c1c] text-gray-900 dark:text-gray-100 rounded-2xl rounded-tl-none border border-gray-100 dark:border-gray-800"
                 )}
               >
-                <p className="text-sm leading-relaxed">{msg.content}</p>                <span className="text-[10px] opacity-70 block mt-1 text-right">
+                <p className="text-sm leading-relaxed">{msg.content}</p>
+                <span className="text-[10px] opacity-70 block mt-1 text-right">
                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>

@@ -2,9 +2,9 @@ import { create } from 'zustand';
 import { ChatState, Message, ChatStatus } from '@/types/chat';
 
 interface ChatStore extends ChatState {
-  selectedMode: 'text' | 'voice';
-  myGender: 'male' | 'female';
-  selectedGender: 'any' | 'male' | 'female';
+  selectedMode: 'text' | 'voice' | '';
+  myGender: 'male' | 'female' | '';
+  selectedGender: 'any' | 'male' | 'female' | '';
   mode: 'text' | 'voice' | null;
   isInitiator: boolean;
   partnerGender: string;
@@ -12,9 +12,9 @@ interface ChatStore extends ChatState {
   setRoomId: (roomId: string | null) => void;
   setMode: (mode: 'text' | 'voice' | null) => void;
   setIsInitiator: (isInitiator: boolean) => void;
-  setSelectedMode: (mode: 'text' | 'voice') => void;
-  setSelectedGender: (gender: 'any' | 'male' | 'female') => void;
-  setMyGender: (gender: 'male' | 'female') => void;
+  setSelectedMode: (mode: 'text' | 'voice' | '') => void;
+  setSelectedGender: (gender: 'any' | 'male' | 'female' | '') => void;
+  setMyGender: (gender: 'male' | 'female' | '') => void;
   setPartnerGender: (gender: string) => void;
   addMessage: (message: Message) => void;
   setPartnerTyping: (isTyping: boolean) => void;
@@ -28,9 +28,9 @@ export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
   isPartnerTyping: false,
   endReason: null,
-  selectedMode: 'text',
-  myGender: 'male',
-  selectedGender: 'any',
+  selectedMode: '',
+  myGender: '',
+  selectedGender: '',
   mode: null,
   isInitiator: false,
   partnerGender: '',
@@ -46,5 +46,10 @@ export const useChatStore = create<ChatStore>((set) => ({
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   setPartnerTyping: (isTyping) => set({ isPartnerTyping: isTyping }),
   setEndReason: (reason) => set({ endReason: reason }),
-  reset: () => set({ status: 'idle', roomId: null, messages: [], isPartnerTyping: false, endReason: null, mode: null, isInitiator: false, selectedGender: 'any', partnerGender: '' }),
+  reset: () => set({ 
+    status: 'idle', roomId: null, messages: [], 
+    isPartnerTyping: false, endReason: null, mode: null, 
+    isInitiator: false, selectedGender: '', partnerGender: '',
+    selectedMode: '', myGender: ''
+  }),
 }));

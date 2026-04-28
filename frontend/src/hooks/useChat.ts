@@ -6,19 +6,19 @@ import { api } from '@/lib/api';
 export function useChat() {
   const store = useChatStore();
 
-  const startSearch = useCallback(async (filter: any = {}) => {
-    try {
-      store.setStatus('searching');
-      await api.search({
-        my_gender: store.myGender,
-        gender: store.selectedGender,
-        mode: store.selectedMode
-      });
-    } catch (err) {
-      console.error('Search failed', err);
-      store.setStatus('idle');
-    }
-  }, [store]);
+  const startSearch = useCallback(async () => {
+  try {
+    store.setStatus('searching');
+    await api.search({
+      my_gender: store.myGender,
+      gender: store.selectedGender,
+      mode: store.selectedMode,
+    });
+  } catch (err) {
+    console.error('Search failed', err);
+    store.setStatus('idle');
+  }
+}, [store]);
 
   const cancelSearch = useCallback(async () => {
     try {

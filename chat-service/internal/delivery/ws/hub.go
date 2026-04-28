@@ -7,24 +7,24 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	goredis "github.com/redis/go-redis/v9"
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 type Client struct {
-	hub  *Hub
-	conn *websocket.Conn
-	send chan []byte
-	repo domain.ChatRepository
+	hub        *Hub
+	conn       *websocket.Conn
+	send       chan []byte
+	repo       domain.ChatRepository
 	moderation domain.ModerationClient
-	
+
 	UserID string
 	RoomID string
 	done   chan struct{}
 }
 
 type Hub struct {
-	clients    map[string]*Client // userID -> client
+	clients    map[string]*Client             // userID -> client
 	rooms      map[string]map[string]struct{} // roomID -> set(userID)
 	register   chan *Client
 	unregister chan *Client
@@ -72,7 +72,12 @@ func (h *Hub) Run(ctx context.Context) {
 			h.mu.Lock()
 			if _, ok := h.clients[userID]; ok {
 				delete(h.clients, userID)
-				close(client.done)
+				select {
+				case <-client.done:
+					// уже закрыт
+				default:
+					close(client.done)
+				}
 			}
 
 			if users, ok := h.rooms[roomID]; ok {
@@ -83,7 +88,6 @@ func (h *Hub) Run(ctx context.Context) {
 			}
 			h.mu.Unlock()
 
-			// Notify remaining user (if any).
 			h.BroadcastToRoom(roomID, "", ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()})
 		}
 	}
@@ -200,14 +204,14 @@ func (h *Hub) sendToRoomLocal(roomID string, build func(recipientID string) Serv
 
 func NewClient(hub *Hub, conn *websocket.Conn, userID, roomID string, repo domain.ChatRepository, moderation domain.ModerationClient) *Client {
 	return &Client{
-		hub:    hub,
-		conn:   conn,
-		send:   make(chan []byte, 256),
-		repo:   repo,
+		hub:        hub,
+		conn:       conn,
+		send:       make(chan []byte, 256),
+		repo:       repo,
 		moderation: moderation,
-		UserID: userID,
-		RoomID: roomID,
-		done:   make(chan struct{}),
+		UserID:     userID,
+		RoomID:     roomID,
+		done:       make(chan struct{}),
 	}
 }
 

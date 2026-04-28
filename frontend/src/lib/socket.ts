@@ -25,10 +25,11 @@ class ChatSocket {
     this.ws = new WebSocket(finalUrl);
 
     this.ws.onopen = () => {
-      console.log('Connected to chat');
-      this.reconnectAttempts = 0;
-      this.startHeartbeat();
-    };
+  console.log('Connected to chat');
+  // Сбрасываем только после успешной работы, не сразу
+  setTimeout(() => { this.reconnectAttempts = 0; }, 5000);
+  this.startHeartbeat();
+};
 
     this.ws.onmessage = (e) => {
       try {
@@ -41,25 +42,24 @@ class ChatSocket {
     };
 
     this.ws.onclose = (e) => {
-      console.log('Disconnected from chat', e.code, e.reason);
-      this.stopHeartbeat();
-      
-      const status = useChatStore.getState().status;
-      // Reconnect if we were in a room and it wasn't a clean close
-      if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++;
-        const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
-        console.log(`Attempting reconnect ${this.reconnectAttempts} in ${delay}ms...`);
-        setTimeout(() => {
-          if (this.lastRoomId && this.lastToken) {
-            this.connect(this.lastRoomId, this.lastToken);
-          }
-        }, delay);
-      } else if (status !== 'idle') {
-        useChatStore.getState().setStatus('ended');
-        useChatStore.getState().setEndReason('disconnect');
+  console.log('Disconnected from chat', e.code, e.reason);
+  this.stopHeartbeat();
+
+  const status = useChatStore.getState().status;
+  if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
+    console.log(`Attempting reconnect ${this.reconnectAttempts} in ${delay}ms...`);
+    setTimeout(() => {
+      if (this.lastRoomId && this.lastToken) {
+        this.connect(this.lastRoomId, this.lastToken);
       }
-    };
+    }, delay);
+  } else if (status !== 'idle') {
+    useChatStore.getState().setStatus('ended');
+    useChatStore.getState().setEndReason('disconnect');
+  }
+};
 
     this.ws.onerror = (err) => {
       console.error('WS Error', err);

@@ -177,95 +177,107 @@ export function useVoiceCall() {
     };
   }, [mode, status, isInitiator, startCall, callState]);
 
+
   useEffect(() => {
-    if (mode !== 'voice' || status === 'idle' || status === 'searching') return;
+  if (mode !== 'voice' || status === 'idle' || status === 'searching') return;
 
-    const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-      if (callState === 'connected' || pcRef.current?.signalingState === 'have-local-offer' || pcRef.current?.signalingState === 'stable') {
-        console.log('Ignoring redundant offer (already connected or stable)');
-        return;
+  const handleOffer = async (offer: RTCSessionDescriptionInit) => {
+    if (callState === 'connected') {
+      console.log('Ignoring offer - already connected');
+      return;
+    }
+
+    console.log('Received RTC Offer');
+
+    if (pcRef.current) {
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+
+    iceQueue.current = [];
+
+    const pc = createPeerConnection();
+    pcRef.current = pc;
+
+    try {
+      let stream = localStreamRef.current;
+      if (!stream) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStreamRef.current = stream;
       }
-      
-      console.log('Received RTC Offer');
-      if (pcRef.current) {
-        console.log('Closing old connection due to new offer');
-        pcRef.current.close();
-      }
-      
-      const pc = createPeerConnection();
-      pcRef.current = pc;
+      stream.getTracks().forEach(track => pc.addTrack(track, stream!));
 
-      try {
-        let stream = localStreamRef.current;
-        if (!stream) {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          localStreamRef.current = stream;
-        }
-        stream.getTracks().forEach(track => pc.addTrack(track, stream!));
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
 
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        
-        console.log('Sending RTC Answer');
-        chatSocket.sendRTC('rtc:answer', answer);
+      console.log('Sending RTC Answer');
+      chatSocket.sendRTC('rtc:answer', answer);
 
-        // Process queued ICE candidates
-        while (iceQueue.current.length > 0) {
-          const candidate = iceQueue.current.shift();
-          if (candidate) await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        }
-      } catch (e) {
-        console.error('Error handling offer', e);
-      }
-    };
-
-    const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-      if (!pcRef.current || pcRef.current.signalingState !== 'have-local-offer') {
-        console.log('Ignoring redundant answer (state not have-local-offer)');
-        return;
-      }
-      
-      console.log('Received RTC Answer');
-      try {
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-      } catch (e) {
-        console.error('Error setting remote answer', e);
-      }
-    };
-
-    const handleCandidate = async (payload: RTCIceCandidateInit) => {
-      if (pcRef.current && pcRef.current.remoteDescription && pcRef.current.signalingState !== 'closed') {
+      console.log(`Processing ${iceQueue.current.length} queued ICE candidates`);
+      for (const candidate of iceQueue.current) {
         try {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(payload));
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
-          // Ignore errors if connection closed during await
-          if ((pcRef.current?.signalingState as string) !== 'closed') {
-            console.error('Error adding ice candidate', e);
-          }
+          console.error('Error adding queued candidate', e);
         }
-      } else {
-        // Queue candidate if remote description is not yet set
-        iceQueue.current.push(payload);
       }
-    };
+      iceQueue.current = [];
+    } catch (e) {
+      console.error('Error handling offer', e);
+    }
+  };
 
-    const handleCallEnd = () => {
-      cleanup();
-    };
+  const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
+    if (!pcRef.current || pcRef.current.signalingState !== 'have-local-offer') {
+      console.log('Ignoring answer - wrong state:', pcRef.current?.signalingState);
+      return;
+    }
 
-    chatSocket.onMessage('rtc:offer', handleOffer);
-    chatSocket.onMessage('rtc:answer', handleAnswer);
-    chatSocket.onMessage('rtc:ice-candidate', handleCandidate);
-    chatSocket.onMessage('call:end', handleCallEnd);
+    console.log('Received RTC Answer');
+    try {
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (e) {
+      console.error('Error setting remote answer', e);
+    }
+  };
 
-    return () => {
-      chatSocket.offMessage('rtc:offer', handleOffer);
-      chatSocket.offMessage('rtc:answer', handleAnswer);
-      chatSocket.offMessage('rtc:ice-candidate', handleCandidate);
-      chatSocket.offMessage('call:end', handleCallEnd);
-    };
-  }, [mode, status, createPeerConnection, cleanup]);
+  const handleCandidate = async (payload: RTCIceCandidateInit) => {
+    const pc = pcRef.current;
+
+    if (!pc || pc.signalingState === 'closed') {
+      return;
+    }
+
+    if (!pc.remoteDescription) {
+      console.log('Queueing ICE candidate');
+      iceQueue.current.push(payload);
+      return;
+    }
+
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(payload));
+    } catch (e) {
+      console.error('Error adding ice candidate', e);
+    }
+  };
+
+  const handleCallEnd = () => {
+    cleanup();
+  };
+
+  chatSocket.onMessage('rtc:offer', handleOffer);
+  chatSocket.onMessage('rtc:answer', handleAnswer);
+  chatSocket.onMessage('rtc:ice-candidate', handleCandidate);
+  chatSocket.onMessage('call:end', handleCallEnd);
+
+  return () => {
+    chatSocket.offMessage('rtc:offer', handleOffer);
+    chatSocket.offMessage('rtc:answer', handleAnswer);
+    chatSocket.offMessage('rtc:ice-candidate', handleCandidate);
+    chatSocket.offMessage('call:end', handleCallEnd);
+  };
+}, [mode, status, createPeerConnection, cleanup, callState]);
 
   // Handle room end
   useEffect(() => {

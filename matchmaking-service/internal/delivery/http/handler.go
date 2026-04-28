@@ -35,7 +35,7 @@ func NewMatchHandler(r chi.Router, usecase domain.MatchUsecase) {
 		r.Get("/status/events", handler.StatusSSE)
 		r.Post("/next", handler.Next)
 	})
-	
+
 	r.Get("/health", handler.Health)
 }
 
@@ -58,6 +58,8 @@ func (h *MatchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		RespondWithError(w, r, http.StatusBadRequest, "BAD_REQUEST", "invalid json body")
 		return
 	}
+
+	log.Info().Interface("filter", req.Filter).Str("user", userID).Msg("search request")
 
 	if req.Filter.Gender == "" {
 		req.Filter.Gender = "any"
@@ -131,33 +133,33 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if already matched before subscribing
-	if room, _ := h.usecase.GetStatus(r.Context(), userID); room != nil {
-		data := map[string]interface{}{
-			"status":       "matched",
-			"room_id":      room.ID,
-			"mode":         room.Mode,
-			"is_initiator": room.UserA == userID,
-			"partner_gender": "unknown", // Room struct doesn't store this, but search will populate it
-		}
-		payload, _ := json.Marshal(data)
-		fmt.Fprintf(w, "data: %s\n\n", payload)
-		flusher.Flush()
-		
-		// Keep alive for a bit to let client process and close
-		select {
-		case <-r.Context().Done():
-		case <-time.After(5 * time.Second):
-		}
-		return
-	}
-
+	// Сначала подписываемся, потом проверяем статус
+	// Так не пропустим матч между двумя вызовами
 	ch, cleanup, err := h.usecase.SubscribeToMatch(r.Context(), userID)
 	if err != nil {
 		RespondWithError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 	defer cleanup()
+
+	// Проверяем не сматчен ли уже
+	if room, _ := h.usecase.GetStatus(r.Context(), userID); room != nil {
+		data := map[string]interface{}{
+			"status":         "matched",
+			"room_id":        room.ID,
+			"mode":           room.Mode,
+			"is_initiator":   room.UserA == userID,
+			"partner_gender": "unknown",
+		}
+		payload, _ := json.Marshal(data)
+		fmt.Fprintf(w, "data: %s\n\n", payload)
+		flusher.Flush()
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+		return
+	}
 
 	for {
 		select {
@@ -168,26 +170,23 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			data := map[string]interface{}{
-				"status":       "matched",
-				"room_id":      match.RoomID,
-				"mode":         match.Mode,
-				"is_initiator": match.IsInitiator,
+				"status":         "matched",
+				"room_id":        match.RoomID,
+				"mode":           match.Mode,
+				"is_initiator":   match.IsInitiator,
 				"partner_gender": match.PartnerGender,
 			}
 			payload, _ := json.Marshal(data)
 			fmt.Fprintf(w, "data: %s\n\n", payload)
 			flusher.Flush()
-			
-			// Keep alive for a bit to let client process and close
 			select {
 			case <-r.Context().Done():
 			case <-time.After(5 * time.Second):
 			}
-			return // End stream after match found
+			return
 		}
 	}
 }
-
 func (h *MatchHandler) Next(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {

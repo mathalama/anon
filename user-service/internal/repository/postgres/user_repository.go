@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/mathalama/nektokz/user-service/internal/domain"
 )
@@ -61,7 +62,6 @@ func (r *InMemoryUserRepository) GetByEmail(ctx context.Context, email string) (
 	return nil, errors.New("user not found")
 }
 
-
 func (r *InMemoryUserRepository) Update(ctx context.Context, user *domain.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -83,6 +83,9 @@ func (r *InMemoryUserRepository) GetActiveBan(ctx context.Context, userID string
 	if !ok || len(bans) == 0 {
 		return nil, nil
 	}
-	// Simplified: return the latest ban
-	return bans[len(bans)-1], nil
+	ban := bans[len(bans)-1]
+	if ban.ExpiresAt.Before(time.Now()) {
+		return nil, nil
+	}
+	return ban, nil
 }

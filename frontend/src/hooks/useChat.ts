@@ -10,12 +10,13 @@ export function useChat() {
 
   const startSearch = useCallback(async () => {
     try {
-      store.setStatus('searching');
       await api.search({
         my_gender: store.myGender,
         gender: store.selectedGender,
         mode: store.selectedMode,
       });
+      
+      store.setStatus('searching');
     } catch (err) {
       console.error('Search failed', err);
       store.setStatus('idle');

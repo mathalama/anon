@@ -25,28 +25,38 @@ export function VoiceCallUI({
       {/* Remote Audio element (hidden) */}
       <audio ref={remoteAudioRef} autoPlay />
 
-      <div className="flex flex-col items-center space-y-6">
+      <div className="flex flex-col items-center space-y-8">
         <div className="relative">
+          {callState === 'connected' && (
+            <>
+              <div className="ripple"></div>
+              <div className="ripple"></div>
+              <div className="ripple"></div>
+            </>
+          )}
           <div className={clsx(
-            "w-32 h-32 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center transition-all duration-500",
-            callState === 'connected' && "ring-4 ring-green-500/30"
+            "relative w-36 h-36 rounded-full bg-secondary flex items-center justify-center transition-all duration-500 glass border-2 border-primary/20",
+            callState === 'connected' && "scale-110 shadow-2xl shadow-primary/40 border-primary/50"
           )}>
-            <User className="w-16 h-16 text-gray-400" />
+            <User className={clsx(
+              "w-20 h-20 transition-colors duration-500",
+              callState === 'connected' ? "text-primary" : "text-foreground/20"
+            )} />
           </div>
           {callState === 'connected' && (
-            <div className="absolute bottom-1 right-1 w-6 h-6 bg-green-500 border-4 border-white dark:border-[#1c1c1c] rounded-full animate-pulse"></div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 border-4 border-background rounded-full z-10"></div>
           )}
         </div>
 
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Stranger ({partnerGender || '...'})
+        <div className="text-center space-y-3">
+          <h2 className="text-3xl font-black tracking-tight text-foreground">
+            Stranger <span className="text-primary/70">({partnerGender || '...'})</span>
           </h2>
           <p className={clsx(
-            "text-sm font-medium uppercase tracking-wider",
-            callState === 'connected' ? "text-green-500" : "text-gray-500 animate-pulse"
+            "text-xs font-black uppercase tracking-[0.2em]",
+            callState === 'connected' ? "text-green-500" : "text-foreground/30 animate-pulse"
           )}>
-            {callState === 'calling' ? 'Calling...' : callState === 'connected' ? 'Voice Connected' : 'Connecting...'}
+            {callState === 'calling' ? 'Establishing Connection...' : callState === 'connected' ? 'Voice Active' : 'Connecting...'}
           </p>
         </div>
       </div>

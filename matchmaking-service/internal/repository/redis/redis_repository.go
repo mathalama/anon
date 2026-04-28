@@ -21,9 +21,9 @@ const (
 )
 
 type RedisMatchRepository struct {
-	rdb        *goredis.Client
-	filterTTL  time.Duration
-	roomTTL    time.Duration
+	rdb       *goredis.Client
+	filterTTL time.Duration
+	roomTTL   time.Duration
 }
 
 func NewRedisMatchRepository(redisURL string) (*RedisMatchRepository, error) {
@@ -35,7 +35,7 @@ func NewRedisMatchRepository(redisURL string) (*RedisMatchRepository, error) {
 	return &RedisMatchRepository{
 		rdb:       rdb,
 		filterTTL: 60 * time.Second,
-		roomTTL:   3 * time.Hour,
+		roomTTL:   30 * time.Minute,
 	}, nil
 }
 
@@ -50,7 +50,7 @@ func (r *RedisMatchRepository) getQueueKey(mode, gender string) string {
 func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.QueueEntry) error {
 	score := float64(entry.JoinedAt.Unix())
 	key := r.getQueueKey(entry.Filter.Mode, entry.Filter.MyGender)
-	
+
 	if err := r.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: entry.UserID}).Err(); err != nil {
 		return err
 	}
@@ -75,8 +75,11 @@ func (r *RedisMatchRepository) RemoveFromQueue(ctx context.Context, userID strin
 		r.rdb.ZRem(ctx, key, userID)
 	}
 	// Also try global/fallback if exists (for migration or safety)
-	r.rdb.ZRem(ctx, queueKey, userID) 
-	
+	r.rdb.ZRem(ctx, queueKey, userID)
+
+	// принудительно отвязываем пользователя от старых комнат
+	r.rdb.Del(ctx, userRoomPref+userID)
+
 	return r.rdb.Del(ctx, filtersKeyPref+userID).Err()
 }
 
@@ -110,7 +113,7 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 	for i, it := range allItems {
 		userID := it.Member.(string)
 		m, err := cmds[i].Result()
-		
+
 		filter := domain.Filter{Gender: "any", Mode: "text"}
 		if err == nil && len(m) > 0 {
 			if s := m["interests"]; s != "" {
@@ -159,10 +162,10 @@ func (r *RedisMatchRepository) CreateRoom(ctx context.Context, room *domain.Room
 		redis.call("DEL", ARGV[7] .. ARGV[1], ARGV[7] .. ARGV[2])
 		return 1
 	`
-	
-	res, err := r.rdb.Eval(ctx, script, 
-		[]string{userAKey, userBKey, roomKey}, 
-		room.UserA, room.UserB, room.Mode, strconv.FormatInt(createdAtUnix, 10), 
+
+	res, err := r.rdb.Eval(ctx, script,
+		[]string{userAKey, userBKey, roomKey},
+		room.UserA, room.UserB, room.Mode, strconv.FormatInt(createdAtUnix, 10),
 		ttlSec, room.ID, filtersKeyPref,
 	).Int()
 
@@ -225,12 +228,12 @@ func (r *RedisMatchRepository) getFilter(ctx context.Context, userID string) (do
 		Mode:      m["mode"],
 	}, nil
 }
- 
+
 func (r *RedisMatchRepository) PublishMatch(ctx context.Context, userID string, match *domain.MatchFound) error {
 	b, _ := json.Marshal(match)
 	return r.rdb.Publish(ctx, "match:"+userID, b).Err()
 }
- 
+
 func (r *RedisMatchRepository) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
 	pubsub := r.rdb.Subscribe(ctx, "match:"+userID)
 	ch := make(chan *domain.MatchFound)
@@ -261,7 +264,6 @@ func parseRedisOptions(redisURL string) (*goredis.Options, error) {
 	}
 	return &goredis.Options{Addr: redisURL}, nil
 }
-
 
 func (r *RedisMatchRepository) HealthCheck(ctx context.Context) error {
 	return r.rdb.Ping(ctx).Err()

@@ -138,9 +138,10 @@ export function useVoiceCall() {
 
   // Initiator: start call when chatting begins
   useEffect(() => {
+    if (mode !== 'voice' || status !== 'chatting') return;
     let retryInterval: NodeJS.Timeout;
 
-    if (mode === 'voice' && status === 'chatting' && isInitiator && !isStartingRef.current && callState === 'idle') {
+    if (status === 'chatting' && isInitiator && !isStartingRef.current && callState === 'idle') {
       isStartingRef.current = true;
 
       const startFast = async () => {

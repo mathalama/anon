@@ -1,10 +1,15 @@
 name: Deploy Monitoring & Proxy
 on:
   push:
+    branches: ["dev"]
     paths:
       - 'docker-compose.monitoring.yml'
       - 'monitoring/**'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   deploy-monitoring:
@@ -17,7 +22,7 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           source: "docker-compose.monitoring.yml,monitoring/**"
           target: "${{ secrets.DEPLOY_PATH }}/monitoring"
 
@@ -26,7 +31,7 @@ jobs:
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             cd ${{ secrets.DEPLOY_PATH }}/monitoring
             docker compose -f docker-compose.monitoring.yml up -d

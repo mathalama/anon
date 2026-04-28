@@ -16,14 +16,17 @@ type Handler struct {
 func New(r chi.Router, uc domain.ModerationUsecase, internalToken string) {
 	h := &Handler{uc: uc, internalToken: internalToken}
 
-	r.Post("/report", h.CreateReport)
-	r.Get("/reports/{id}", h.GetReport)
+	r.Route("/report", func(r chi.Router) {
+		r.Post("/report", h.CreateReport)
+		r.Get("/reports/{id}", h.GetReport)
 
-	r.Route("/admin", func(r chi.Router) {
-		r.Get("/reports", h.ListReports)
+		r.Route("/admin", func(r chi.Router) {
+			r.Get("/reports", h.ListReports)
+		})
+
+		r.Post("/moderate/message", h.ModerateMessage)
 	})
 
-	r.Post("/moderate/message", h.ModerateMessage)
 	r.Get("/health", h.Health)
 }
 
@@ -68,7 +71,10 @@ func (h *Handler) GetReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListReports(w http.ResponseWriter, r *http.Request) {
-	// TODO: add admin auth
+	if !h.isInternalAuthorized(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	reps, err := h.uc.ListReports(r.Context(), 100)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -1,4 +1,5 @@
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation
+.PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation build-check logs-infra logs-services coturn-status
 
 SERVICE_PATTERNS=./api-gateway/... ./user-service/... ./matchmaking-service/... ./chat-service/... ./moderation-service/... ./notification-service/...
 
@@ -6,6 +7,10 @@ help:
 	@echo "NektoKZ Makefile"
 	@echo "Targets:"
 	@echo "  build   - Build all services"
+	@echo "  build-check - Quick go build for all services"
+	@echo "  coturn-status - Check coturn sessions"
+	@echo "  logs-infra - Logs for infra (postgres, redis, coturn)"
+	@echo "  logs-services - Logs for microservices"
 	@echo "  test    - Run tests for all services"
 	@echo "  up      - Start everything"
 	@echo "  up-infra - Start infra only"
@@ -21,6 +26,14 @@ help:
 
 build:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
+
+build-check:
+	go build ./api-gateway/cmd/main.go
+	go build ./user-service/cmd/main.go
+	go build ./chat-service/cmd/main.go
+	go build ./matchmaking-service/cmd/main.go
+	go build ./moderation-service/cmd/main.go
+	go build ./notification-service/cmd/main.go
 
 test:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
@@ -43,7 +56,16 @@ ps:
 	docker compose -f docker-compose.services.yml ps
 
 logs:
-	docker compose -f docker-compose.infra.yml logs -f --tail=100 & docker compose -f docker-compose.services.yml logs -f --tail=100
+	docker compose -f docker-compose.infra.yml logs -f --tail=50
+
+logs-infra:
+	docker compose -f docker-compose.infra.yml logs -f
+
+logs-services:
+	docker compose -f docker-compose.services.yml logs -f
+
+coturn-status:
+	docker exec nektokz-coturn turnadmin -l
 
 lint:
 	@echo "Linting... (golangci-lint run ./...)"

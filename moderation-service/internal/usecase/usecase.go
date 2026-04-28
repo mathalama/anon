@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -75,9 +76,15 @@ func (u *moderationUsecase) CreateReport(ctx context.Context, reporterUserID, re
 	}
 
 	if banHours > 0 {
-		_ = u.userCli.Ban(ctx, reportedUserID, "auto-ban: report threshold exceeded", "system", banHours)
-		_ = u.chatCli.Disconnect(ctx, reportedUserID)
-		_ = u.notif.Notify(ctx, "ban_applied", reportedUserID, map[string]any{"hours": banHours})
+		if err := u.userCli.Ban(ctx, reportedUserID, "auto-ban: report threshold exceeded", "system", banHours); err != nil {
+			log.Printf("[MODERATION] failed to ban user %s: %v", reportedUserID, err)
+		}
+		if err := u.chatCli.Disconnect(ctx, reportedUserID); err != nil {
+			log.Printf("[MODERATION] failed to disconnect user %s: %v", reportedUserID, err)
+		}
+		if err := u.notif.Notify(ctx, "ban_applied", reportedUserID, map[string]any{"hours": banHours}); err != nil {
+			log.Printf("[MODERATION] failed to notify user %s about ban: %v", reportedUserID, err)
+		}
 	}
 
 	return r, &counts, nil
@@ -98,13 +105,22 @@ func (u *moderationUsecase) ListReports(ctx context.Context, limit int) ([]*doma
 }
 
 func (u *moderationUsecase) ModerateMessage(ctx context.Context, content string) (bool, error) {
+	if len(u.toxicWords) == 0 {
+		return false, nil
+	}
+
 	s := strings.ToLower(content)
+	// Remove common punctuation and separators to catch obfuscated words
+	replacer := strings.NewReplacer(" ", "", ".", "", "_", "", "-", "", "*", "")
+	cleanContent := replacer.Replace(s)
+
 	for _, w := range u.toxicWords {
 		ww := strings.TrimSpace(strings.ToLower(w))
 		if ww == "" {
 			continue
 		}
-		if strings.Contains(s, ww) {
+		// Check both raw and clean content
+		if strings.Contains(s, ww) || strings.Contains(cleanContent, ww) {
 			return true, nil
 		}
 	}

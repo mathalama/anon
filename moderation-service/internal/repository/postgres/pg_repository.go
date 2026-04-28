@@ -22,6 +22,7 @@ func (r *PGReportRepository) CreateReport(ctx context.Context, rep *domain.Repor
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO reports (id, room_id, reporter_user_id, reported_user_id, reason, created_at)
 		VALUES ($1,$2,$3,$4,$5,$6)
+		ON CONFLICT (reporter_user_id, reported_user_id) DO NOTHING
 	`, rep.ID, rep.RoomID, rep.ReporterUserID, rep.ReportedUserID, rep.Reason, rep.CreatedAt)
 	return err
 }

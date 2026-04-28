@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -11,6 +13,17 @@ import (
 func Auth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := r.URL.Path
+			
+			// ALWAYS remove X-User-ID from incoming request to prevent spoofing
+			r.Header.Del("X-User-ID")
+
+			// Skip for health checks and docs
+			if strings.HasSuffix(path, "/health") || strings.Contains(path, "/docs") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			tokenString := ""
 			authHeader := r.Header.Get("Authorization")
 			if authHeader != "" {
@@ -19,40 +32,37 @@ func Auth(secret string) func(http.Handler) http.Handler {
 					tokenString = parts[1]
 				}
 			}
-
-			// If no header, check query param (useful for WebSockets)
 			if tokenString == "" {
 				tokenString = r.URL.Query().Get("token")
 			}
 
-			if tokenString == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				return []byte(secret), nil
-			})
+			userID := ""
 
-			if err != nil || !token.Valid {
-				http.Error(w, "invalid token", http.StatusUnauthorized)
-				return
-			}
+			if tokenString != "" && tokenString != "undefined" && tokenString != "null" {
+				token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+					return []byte(secret), nil
+				})
 
-			claims, ok := token.Claims.(jwt.MapClaims)
-			if !ok {
-				http.Error(w, "invalid claims", http.StatusUnauthorized)
-				return
+				if err == nil && token.Valid {
+					if claims, ok := token.Claims.(jwt.MapClaims); ok {
+						if sub, ok := claims["sub"].(string); ok {
+							userID = sub
+						}
+					}
+				}
 			}
 
-			userID, ok := claims["sub"].(string)
-			if !ok {
-				http.Error(w, "invalid subject", http.StatusUnauthorized)
-				return
+			// If no valid userID from token, generate a UUID
+			if userID == "" {
+				// Generate a valid RFC4122 v4 UUID using crypto/rand
+				b := make([]byte, 16)
+				rand.Read(b)
+				b[6] = (b[6] & 0x0f) | 0x40 // Version 4
+				b[8] = (b[8] & 0x3f) | 0x80 // Variant 10
+				userID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 			}
 
-			// Add userID to header for downstream services
 			r.Header.Set("X-User-ID", userID)
-			
 			ctx := context.WithValue(r.Context(), "user_id", userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

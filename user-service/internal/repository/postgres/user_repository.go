@@ -61,16 +61,6 @@ func (r *InMemoryUserRepository) GetByEmail(ctx context.Context, email string) (
 	return nil, errors.New("user not found")
 }
 
-func (r *InMemoryUserRepository) GetByTelegramID(ctx context.Context, telegramID int64) (*domain.User, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, u := range r.users {
-		if u.TelegramID == telegramID {
-			return u, nil
-		}
-	}
-	return nil, errors.New("user not found")
-}
 
 func (r *InMemoryUserRepository) Update(ctx context.Context, user *domain.User) error {
 	r.mu.Lock()

@@ -29,6 +29,7 @@ type ChatRepository interface {
 	
 	SaveMessage(ctx context.Context, msg *Message) error
 	GetMessages(ctx context.Context, roomID string) ([]*Message, error)
+	HealthCheck(ctx context.Context) error
 }
 
 type ModerationClient interface {

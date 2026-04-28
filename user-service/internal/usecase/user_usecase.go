@@ -8,20 +8,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/mathalama/nektokz/user-service/internal/domain"
 	"golang.org/x/crypto/bcrypt"
-	"fmt"
 )
 
 type userUsecase struct {
 	repo         domain.UserRepository
 	tokenManager *TokenManager
-	botToken     string
 }
 
-func NewUserUsecase(repo domain.UserRepository, tm *TokenManager, botToken string) domain.UserUsecase {
+func NewUserUsecase(repo domain.UserRepository, tm *TokenManager) domain.UserUsecase {
 	return &userUsecase{
 		repo:         repo,
 		tokenManager: tm,
-		botToken:     botToken,
 	}
 }
 
@@ -75,46 +72,6 @@ func (u *userUsecase) Login(ctx context.Context, email, password string) (string
 	return u.tokenManager.GeneratePair(user.ID)
 }
 
-func (u *userUsecase) LoginTelegram(ctx context.Context, data map[string]string) (string, string, error) {
-	if err := VerifyTelegramHash(data, u.botToken); err != nil {
-		return "", "", errors.New("invalid telegram signature")
-	}
-
-	tgIDStr := data["id"]
-	var tgID int64
-	fmt.Sscanf(tgIDStr, "%d", &tgID)
-
-	user, err := u.repo.GetByTelegramID(ctx, tgID)
-	if err != nil {
-		if err != nil && err.Error() != "user not found" {
-			return "", "", err
-		}
-
-		// Create new user linked to Telegram
-		user = &domain.User{
-			ID:          uuid.New().String(),
-			TelegramID:  tgID,
-			FirstName:   data["first_name"],
-			LastName:    data["last_name"],
-			Username:    data["username"],
-			PhotoURL:    data["photo_url"],
-			IsAnonymous: false,
-			CreatedAt:   time.Now(),
-		}
-		if err := u.repo.Create(ctx, user); err != nil {
-			return "", "", err
-		}
-	} else {
-		// Update user info from Telegram
-		user.FirstName = data["first_name"]
-		user.LastName = data["last_name"]
-		user.Username = data["username"]
-		user.PhotoURL = data["photo_url"]
-		u.repo.Update(ctx, user)
-	}
-
-	return u.tokenManager.GeneratePair(user.ID)
-}
 
 func (u *userUsecase) Refresh(ctx context.Context, refreshToken string) (string, string, error) {
 	userID, err := u.tokenManager.ValidateAndGetSubject(refreshToken, "refresh")

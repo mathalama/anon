@@ -60,3 +60,15 @@ func (r *InMemoryMatchRepository) GetRoom(ctx context.Context, userID string) (*
 	}
 	return room, nil
 }
+ 
+func (r *InMemoryMatchRepository) PublishMatch(ctx context.Context, userID string, match *domain.MatchFound) error {
+	return nil
+}
+ 
+func (r *InMemoryMatchRepository) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
+	return nil, func() {}, nil
+}
+
+func (r *InMemoryMatchRepository) HealthCheck(ctx context.Context) error {
+	return nil
+}

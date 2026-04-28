@@ -14,32 +14,32 @@ func TestIsCompatible(t *testing.T) {
 	}{
 		{
 			name: "Any gender match",
-			f1:   domain.Filter{Gender: "any"},
-			f2:   domain.Filter{Gender: "male"},
+			f1:   domain.Filter{Gender: "any", MyGender: "male"},
+			f2:   domain.Filter{Gender: "male", MyGender: "female"},
 			want: true,
 		},
 		{
 			name: "Specific gender match",
-			f1:   domain.Filter{Gender: "male"},
-			f2:   domain.Filter{Gender: "male"},
+			f1:   domain.Filter{Gender: "male", MyGender: "male"},
+			f2:   domain.Filter{Gender: "male", MyGender: "male"},
 			want: true,
 		},
 		{
 			name: "Specific gender mismatch",
-			f1:   domain.Filter{Gender: "male"},
-			f2:   domain.Filter{Gender: "female"},
+			f1:   domain.Filter{Gender: "male", MyGender: "male"},
+			f2:   domain.Filter{Gender: "female", MyGender: "female"},
 			want: false,
 		},
 		{
 			name: "Interest match",
-			f1:   domain.Filter{Gender: "any", Interests: []string{"tech"}},
-			f2:   domain.Filter{Gender: "any", Interests: []string{"tech", "music"}},
+			f1:   domain.Filter{Gender: "any", MyGender: "male", Interests: []string{"tech"}},
+			f2:   domain.Filter{Gender: "any", MyGender: "female", Interests: []string{"tech", "music"}},
 			want: true,
 		},
 		{
 			name: "Interest mismatch",
-			f1:   domain.Filter{Gender: "any", Interests: []string{"sports"}},
-			f2:   domain.Filter{Gender: "any", Interests: []string{"tech"}},
+			f1:   domain.Filter{Gender: "any", MyGender: "male", Interests: []string{"sports"}},
+			f2:   domain.Filter{Gender: "any", MyGender: "female", Interests: []string{"tech"}},
 			want: false,
 		},
 	}
@@ -56,11 +56,11 @@ func TestIsCompatible(t *testing.T) {
 func TestMatch(t *testing.T) {
 	target := &domain.QueueEntry{
 		UserID: "user1",
-		Filter: domain.Filter{Gender: "male", Interests: []string{"tech"}},
+		Filter: domain.Filter{Gender: "male", MyGender: "male", Interests: []string{"tech"}},
 	}
 	candidates := []*domain.QueueEntry{
-		{UserID: "user2", Filter: domain.Filter{Gender: "female", Interests: []string{"music"}}},
-		{UserID: "user3", Filter: domain.Filter{Gender: "male", Interests: []string{"tech"}}},
+		{UserID: "user2", Filter: domain.Filter{Gender: "female", MyGender: "female", Interests: []string{"music"}}},
+		{UserID: "user3", Filter: domain.Filter{Gender: "male", MyGender: "male", Interests: []string{"tech"}}},
 	}
 
 	got := Match(target, candidates)

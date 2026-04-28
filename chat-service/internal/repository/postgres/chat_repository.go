@@ -56,3 +56,7 @@ func (r *InMemoryChatRepository) GetMessages(ctx context.Context, roomID string)
 	defer r.mu.RUnlock()
 	return r.messages[roomID], nil
 }
+
+func (r *InMemoryChatRepository) HealthCheck(ctx context.Context) error {
+	return nil
+}

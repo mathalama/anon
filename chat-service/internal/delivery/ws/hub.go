@@ -1,11 +1,13 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
 )
 
@@ -18,6 +20,7 @@ type Client struct {
 	
 	UserID string
 	RoomID string
+	done   chan struct{}
 }
 
 type Hub struct {
@@ -26,20 +29,27 @@ type Hub struct {
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
+	rdb        *goredis.Client
 }
 
-func NewHub() *Hub {
+func NewHub(rdb *goredis.Client) *Hub {
 	return &Hub{
 		clients:    make(map[string]*Client),
 		rooms:      make(map[string]map[string]struct{}),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
+		rdb:        rdb,
 	}
 }
 
-func (h *Hub) Run() {
+func (h *Hub) Run(ctx context.Context) {
+	if h.rdb != nil {
+		go h.listenRedis(ctx)
+	}
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case client := <-h.register:
 			h.mu.Lock()
 			h.clients[client.UserID] = client
@@ -52,12 +62,7 @@ func (h *Hub) Run() {
 
 			// When the second user connects to the room, notify both.
 			if count >= 2 {
-				h.sendToRoom(client.RoomID, func(recipientID string) ServerMessage {
-					return ServerMessage{Type: "partner_connected", Timestamp: time.Now().Unix()}
-				})
-				h.sendToRoom(client.RoomID, func(recipientID string) ServerMessage {
-					return ServerMessage{Type: "match_found", RoomID: client.RoomID, Timestamp: time.Now().Unix()}
-				})
+				h.BroadcastToRoom(client.RoomID, "", ServerMessage{Type: "partner_connected", Timestamp: time.Now().Unix()})
 			}
 
 		case client := <-h.unregister:
@@ -67,7 +72,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			if _, ok := h.clients[userID]; ok {
 				delete(h.clients, userID)
-				close(client.send)
+				close(client.done)
 			}
 
 			if users, ok := h.rooms[roomID]; ok {
@@ -79,9 +84,67 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 
 			// Notify remaining user (if any).
-			h.sendToRoom(roomID, func(recipientID string) ServerMessage {
-				return ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()}
-			})
+			h.BroadcastToRoom(roomID, "", ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()})
+		}
+	}
+}
+
+type redisMsg struct {
+	RoomID           string        `json:"room_id"`
+	OriginalSenderID string        `json:"original_sender_id"`
+	Payload          ServerMessage `json:"payload"`
+}
+
+func (h *Hub) BroadcastToRoom(roomID string, senderID string, msg ServerMessage) {
+	if h.rdb == nil {
+		h.sendToRoomLocal(roomID, func(recipientID string) ServerMessage {
+			return h.personalize(msg, senderID, recipientID)
+		})
+		return
+	}
+	b, _ := json.Marshal(redisMsg{RoomID: roomID, OriginalSenderID: senderID, Payload: msg})
+	h.rdb.Publish(context.Background(), "chat:rooms", b)
+}
+
+func (h *Hub) personalize(msg ServerMessage, senderID, recipientID string) ServerMessage {
+	// Don't send typing or RTC signals back to the sender
+	if senderID != "" && recipientID == senderID {
+		switch msg.Type {
+		case "partner_typing", "rtc:offer", "rtc:answer", "rtc:ice-candidate":
+			return ServerMessage{Type: ""}
+		}
+	}
+
+	if msg.Type != "message" {
+		return msg
+	}
+
+	// For chat messages, set "me" or "partner"
+	res := msg
+	if recipientID == senderID {
+		res.Sender = "me"
+	} else {
+		res.Sender = "partner"
+	}
+	return res
+}
+
+func (h *Hub) listenRedis(ctx context.Context) {
+	pubsub := h.rdb.Subscribe(ctx, "chat:rooms")
+	defer pubsub.Close()
+
+	ch := pubsub.Channel()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-ch:
+			var rm redisMsg
+			if err := json.Unmarshal([]byte(msg.Payload), &rm); err == nil {
+				h.sendToRoomLocal(rm.RoomID, func(recipientID string) ServerMessage {
+					return h.personalize(rm.Payload, rm.OriginalSenderID, recipientID)
+				})
+			}
 		}
 	}
 }
@@ -109,7 +172,7 @@ func (h *Hub) DisconnectRoom(roomID string) {
 	}
 }
 
-func (h *Hub) sendToRoom(roomID string, build func(recipientID string) ServerMessage) {
+func (h *Hub) sendToRoomLocal(roomID string, build func(recipientID string) ServerMessage) {
 	h.mu.RLock()
 	users := h.rooms[roomID]
 	clients := make([]*Client, 0, len(users))
@@ -127,6 +190,8 @@ func (h *Hub) sendToRoom(roomID string, build func(recipientID string) ServerMes
 		}
 		data, _ := json.Marshal(msg)
 		select {
+		case <-c.done:
+			continue
 		case c.send <- data:
 		default:
 		}
@@ -142,6 +207,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, roomID string, repo domai
 		moderation: moderation,
 		UserID: userID,
 		RoomID: roomID,
+		done:   make(chan struct{}),
 	}
 }
 

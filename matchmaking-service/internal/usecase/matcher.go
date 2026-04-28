@@ -22,7 +22,24 @@ func Match(target *domain.QueueEntry, candidates []*domain.QueueEntry) *domain.Q
 // IsCompatible checks if two filters match.
 // Simplified: if gender is 'any' or matches, and at least one interest matches (if any).
 func IsCompatible(f1, f2 domain.Filter) bool {
-	if f1.Gender != "any" && f2.Gender != "any" && f1.Gender != f2.Gender {
+	mode1 := f1.Mode
+	if mode1 == "" {
+		mode1 = "text"
+	}
+	mode2 := f2.Mode
+	if mode2 == "" {
+		mode2 = "text"
+	}
+	if mode1 != mode2 {
+		return false
+	}
+
+	// 1. Check if f1 wants f2's gender
+	if f1.Gender != "any" && f1.Gender != f2.MyGender {
+		return false
+	}
+	// 2. Check if f2 wants f1's gender
+	if f2.Gender != "any" && f2.Gender != f1.MyGender {
 		return false
 	}
 

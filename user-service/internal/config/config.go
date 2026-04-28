@@ -14,7 +14,6 @@ type Config struct {
 	JWTAccessTTL   time.Duration
 	JWTRefreshTTL  time.Duration
 	InternalToken      string
-	TelegramBotToken   string
 	Port               string
 }
 
@@ -28,7 +27,6 @@ func Load() *Config {
 		JWTAccessTTL:   getDurationEnv("JWT_ACCESS_TTL", 15*time.Minute),
 		JWTRefreshTTL:  getDurationEnv("JWT_REFRESH_TTL", 168*time.Hour),
 		InternalToken:    getEnv("INTERNAL_TOKEN", "dev-internal-token"),
-		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 		Port:             getEnv("PORT", "8081"),
 	}
 }

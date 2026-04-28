@@ -24,7 +24,6 @@ func NewUserHandler(r chi.Router, usecase domain.UserUsecase, internalToken stri
 		r.Post("/anonymous", handler.CreateAnonymous)
 		r.Post("/register", handler.Register)
 		r.Post("/login", handler.Login)
-		r.Post("/auth/telegram", handler.LoginTelegram)
 		r.Post("/refresh", handler.Refresh)
 		
 		r.Group(func(r chi.Router) {
@@ -101,24 +100,6 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *UserHandler) LoginTelegram(w http.ResponseWriter, r *http.Request) {
-	var req map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	access, refresh, err := h.usecase.LoginTelegram(r.Context(), req)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  access,
-		"refresh_token": refresh,
-	})
-}
 
 func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req struct {

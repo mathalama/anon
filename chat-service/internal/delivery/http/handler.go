@@ -26,35 +26,35 @@ type ChatHandler struct {
 func NewChatHandler(r chi.Router, hub *ws.Hub, repo domain.ChatRepository, moderation domain.ModerationClient, internalToken string) {
 	h := &ChatHandler{hub: hub, repo: repo, moderation: moderation, internalToken: internalToken}
 
-	r.Get("/ws", h.ServeWS)
-	r.Post("/internal/rooms", h.CreateRoom)
-	r.Post("/internal/disconnect", h.DisconnectUser)
+	r.Route("/chat", func(r chi.Router) {
+		r.HandleFunc("/ws", h.ServeWS)
+		r.Post("/internal/rooms", h.CreateRoom)
+		r.Post("/internal/disconnect", h.DisconnectUser)
+	})
+	
+	r.HandleFunc("/ws", h.ServeWS) // Fallback for direct gateway /ws mapping
 	r.Get("/health", h.Health)
 }
 
 func (h *ChatHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	roomID := r.URL.Query().Get("room_id")
-	userID := r.Header.Get("X-User-ID") // Passed by gateway
+	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		RespondWithError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "user id missing")
 		return
 	}
 	if roomID == "" {
-		http.Error(w, "room_id is required", http.StatusBadRequest)
+		RespondWithError(w, r, http.StatusBadRequest, "BAD_REQUEST", "room_id is required")
 		return
 	}
 
 	room, err := h.repo.GetRoom(r.Context(), roomID)
-	if err != nil {
-		http.Error(w, "room not found", http.StatusNotFound)
-		return
-	}
-	if room == nil {
-		http.Error(w, "room not found", http.StatusNotFound)
+	if err != nil || room == nil {
+		RespondWithError(w, r, http.StatusNotFound, "NOT_FOUND", "room not found")
 		return
 	}
 	if userID != room.UserA && userID != room.UserB {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		RespondWithError(w, r, http.StatusForbidden, "FORBIDDEN", "access denied to this room")
 		return
 	}
 
@@ -72,17 +72,17 @@ func (h *ChatHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 func (h *ChatHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 	if !h.isInternalAuthorized(r) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		RespondWithError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "internal token missing or invalid")
 		return
 	}
 	var req domain.Room
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		RespondWithError(w, r, http.StatusBadRequest, "BAD_REQUEST", "invalid json body")
 		return
 	}
 	req.Status = "active"
 	if err := h.repo.CreateRoom(r.Context(), &req); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		RespondWithError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -90,14 +90,14 @@ func (h *ChatHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 
 func (h *ChatHandler) DisconnectUser(w http.ResponseWriter, r *http.Request) {
 	if !h.isInternalAuthorized(r) {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		RespondWithError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "internal token missing or invalid")
 		return
 	}
 	var req struct {
 		UserID string `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		RespondWithError(w, r, http.StatusBadRequest, "BAD_REQUEST", "invalid json body")
 		return
 	}
 	h.hub.DisconnectUser(req.UserID)
@@ -105,7 +105,13 @@ func (h *ChatHandler) DisconnectUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ChatHandler) Health(w http.ResponseWriter, r *http.Request) {
+	if err := h.repo.HealthCheck(r.Context()); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("ERROR: " + err.Error()))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func (h *ChatHandler) isInternalAuthorized(r *http.Request) bool {

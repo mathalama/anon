@@ -106,3 +106,7 @@ func (r *PGChatRepository) GetMessages(ctx context.Context, roomID string) ([]*d
 	return out, nil
 }
 
+
+func (r *PGChatRepository) HealthCheck(ctx context.Context) error {
+	return r.pool.Ping(ctx)
+}

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -32,17 +34,32 @@ func main() {
 	// Standard middleware
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+
+	// Security Headers
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("X-XSS-Protection", "1; mode=block")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			w.Header().Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none';")
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// CORS
+	origins := cfg.AllowedOrigins
+	if cfg.AppEnv == "development" {
+		origins = append(origins, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001")
+	}
+
 	r.Use(cors.Handler(cors.Options{
-		AllowOriginFunc: func(r *http.Request, origin string) bool {
-			return true
-		},
+		AllowedOrigins:   origins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-User-ID"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "Last-Event-ID"},
+		ExposedHeaders:   []string{"Link", "X-Request-ID"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -64,46 +81,67 @@ func main() {
 	p := proxy.NewProxy()
 	p.AddTarget("/api/v1/users", cfg.UserServiceURL)
 	p.AddTarget("/api/v1/match", cfg.MatchmakingServiceURL)
-	p.AddTarget("/api/v1/chat", cfg.ChatServiceURL)
 	p.AddTarget("/api/v1/report", cfg.ModerationServiceURL)
+	p.AddTarget("/api/v1/chat", cfg.ChatServiceURL)
 	p.AddTarget("/ws", cfg.ChatServiceURL)
 
-	// Proxy all requests
-	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(gwMiddleware.DenyInternal)
-
-		// Health check
-		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-		})
-
-		// Swagger
-		r.Get("/docs/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, "./docs/swagger.yaml")
-		})
-		r.Get("/docs/*", httpSwagger.Handler(
-			httpSwagger.URL("/api/v1/docs/swagger.yaml"),
-		))
-
-		r.HandleFunc("/*", p.Handler)
+	// Health check (gateway level)
+	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	})
-	r.HandleFunc("/ws", p.Handler)
 
-	log.Info().
-		Str("port", cfg.Port).
-		Str("env", cfg.AppEnv).
-		Msg("api-gateway starting...")
+	// Swagger & Docs
+	r.Get("/api/v1/docs/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./docs/swagger.yaml")
+	})
+	r.Get("/api/v1/docs/*", httpSwagger.Handler(
+		httpSwagger.URL("/api/v1/docs/swagger.yaml"),
+	))
+
+	// Proxy all requests starting with /api/v1
+	r.Group(func(r chi.Router) {
+		r.Use(gwMiddleware.DenyInternal)
+		r.HandleFunc("/api/v1/*", p.Handler)
+	})
+
+	// WebSocket handler
+	r.HandleFunc("/ws", p.Handler)
+	r.HandleFunc("/ws/*", p.Handler)
+
+	// Fallback for any other requests
+	r.NotFound(p.Handler)
 
 	server := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      r,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  15 * time.Second,
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second, // Protect against Slowloris
+		ReadTimeout:       0,                // Allow long-lived connections (WS/SSE)
+		WriteTimeout:      0,                // Allow long-lived connections (WS/SSE)
+		IdleTimeout:       1 * time.Hour,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal().Err(err).Msg("failed to start server")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Info().
+			Str("port", cfg.Port).
+			Str("env", cfg.AppEnv).
+			Msg("api-gateway starting...")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("failed to start server")
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info().Msg("shutting down api-gateway...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Fatal().Err(err).Msg("server shutdown failed")
 	}
+	log.Info().Msg("api-gateway stopped")
 }

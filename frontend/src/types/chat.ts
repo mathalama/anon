@@ -1,4 +1,4 @@
-export type ChatStatus = 'idle' | 'searching' | 'matched' | 'chatting' | 'ended';
+export type ChatStatus = 'idle' | 'searching' | 'matched' | 'chatting' | 'calling' | 'ended';
 
 export interface Message {
   id: string;
@@ -8,12 +8,15 @@ export interface Message {
 }
 
 export interface ServerMessage {
-  type: 'partner_connected' | 'message' | 'partner_disconnected' | 'partner_typing' | 'match_found' | 'error';
+  type: 'partner_connected' | 'message' | 'partner_disconnected' | 'partner_typing' | 'match_found' | 'error' | 
+        'rtc:offer' | 'rtc:answer' | 'rtc:ice-candidate' | 'call:start' | 'call:end' | 'pong';
   room_id?: string;
   content?: string;
   sender?: string;
   is_typing?: boolean;
   timestamp?: number;
+  payload?: any;
+  mode?: 'text' | 'voice';
 }
 
 export type ChatState = {

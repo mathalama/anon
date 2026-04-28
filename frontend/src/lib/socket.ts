@@ -4,24 +4,36 @@ import { ServerMessage } from '@/types/chat';
 class ChatSocket {
   private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
+  private maxReconnectAttempts = 20;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private listeners: Map<string, Set<(payload: any) => void>> = new Map();
+  private lastRoomId: string | null = null;
+  private lastToken: string | null = null;
 
   connect(roomId: string, token: string) {
+    this.lastRoomId = roomId;
+    this.lastToken = token;
+
     if (this.ws) {
       this.ws.close();
     }
 
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
-    this.ws = new WebSocket(`${wsUrl}?room_id=${roomId}&token=${token}`);
+    const finalUrl = `${wsUrl}?room_id=${roomId}&token=${token}`;
+    console.log('Connecting to:', finalUrl);
+    
+    this.ws = new WebSocket(finalUrl);
 
     this.ws.onopen = () => {
       console.log('Connected to chat');
       this.reconnectAttempts = 0;
+      this.startHeartbeat();
     };
 
     this.ws.onmessage = (e) => {
       try {
         const msg: ServerMessage = JSON.parse(e.data);
+        if (msg.type === 'pong') return;
         this.handleMessage(msg);
       } catch (err) {
         console.error('Failed to parse WS message', err);
@@ -29,11 +41,21 @@ class ChatSocket {
     };
 
     this.ws.onclose = (e) => {
-      console.log('Disconnected from chat', e.reason);
-      if (!e.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
+      console.log('Disconnected from chat', e.code, e.reason);
+      this.stopHeartbeat();
+      
+      const status = useChatStore.getState().status;
+      // Reconnect if we were in a room and it wasn't a clean close
+      if (status !== 'idle' && status !== 'ended' && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
-        setTimeout(() => this.connect(roomId, token), 1000 * Math.pow(2, this.reconnectAttempts));
-      } else {
+        const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
+        console.log(`Attempting reconnect ${this.reconnectAttempts} in ${delay}ms...`);
+        setTimeout(() => {
+          if (this.lastRoomId && this.lastToken) {
+            this.connect(this.lastRoomId, this.lastToken);
+          }
+        }, delay);
+      } else if (status !== 'idle') {
         useChatStore.getState().setStatus('ended');
         useChatStore.getState().setEndReason('disconnect');
       }
@@ -69,6 +91,12 @@ class ChatSocket {
         store.setPartnerTyping(!!msg.is_typing);
         break;
     }
+
+    // Notify listeners
+    const typeListeners = this.listeners.get(msg.type);
+    if (typeListeners) {
+      typeListeners.forEach(cb => cb(msg.payload || msg));
+    }
   }
 
   send(content: string) {
@@ -93,10 +121,47 @@ class ChatSocket {
     useChatStore.getState().setEndReason('next');
   }
 
+  onMessage(type: string, callback: (payload: any) => void) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, new Set());
+    }
+    this.listeners.get(type)!.add(callback);
+  }
+
+  offMessage(type: string, callback: (payload: any) => void) {
+    const typeListeners = this.listeners.get(type);
+    if (typeListeners) {
+      typeListeners.delete(callback);
+    }
+  }
+
+  sendRTC(type: string, payload: any) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type, payload }));
+    }
+  }
+
   disconnect() {
+    this.stopHeartbeat();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
   }
 }

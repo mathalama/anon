@@ -20,39 +20,33 @@ func NewPGUserRepository(pool *pgxpool.Pool) *PGUserRepository {
 
 func (r *PGUserRepository) Create(ctx context.Context, user *domain.User) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO users (id, device_id, email, password_hash, gender, interests, is_anonymous, telegram_id, first_name, last_name, username, photo_url, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+		INSERT INTO users (id, device_id, email, password_hash, gender, interests, is_anonymous, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
 	`, user.ID, nullIfEmpty(user.DeviceID), nullIfEmpty(user.Email), nullIfEmpty(user.PasswordHash), 
-	   user.Gender, user.Interests, user.IsAnonymous, nullIfZero(user.TelegramID), 
-	   nullIfEmpty(user.FirstName), nullIfEmpty(user.LastName), nullIfEmpty(user.Username), nullIfEmpty(user.PhotoURL), user.CreatedAt)
+	   user.Gender, user.Interests, user.IsAnonymous, user.CreatedAt)
 	return err
 }
 
 func (r *PGUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, telegram_id, first_name, last_name, username, photo_url, created_at FROM users WHERE id=$1`, id)
+	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE id=$1`, id)
 }
 
 func (r *PGUserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, telegram_id, first_name, last_name, username, photo_url, created_at FROM users WHERE device_id=$1`, deviceID)
+	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE device_id=$1`, deviceID)
 }
 
 func (r *PGUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, telegram_id, first_name, last_name, username, photo_url, created_at FROM users WHERE email=$1`, email)
+	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE email=$1`, email)
 }
 
-func (r *PGUserRepository) GetByTelegramID(ctx context.Context, telegramID int64) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, telegram_id, first_name, last_name, username, photo_url, created_at FROM users WHERE telegram_id=$1`, telegramID)
-}
 
 func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error {
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE users
-		SET device_id=$2, email=$3, password_hash=$4, gender=$5, interests=$6, is_anonymous=$7,
-		    telegram_id=$8, first_name=$9, last_name=$10, username=$11, photo_url=$12
+		SET device_id=$2, email=$3, password_hash=$4, gender=$5, interests=$6, is_anonymous=$7
 		WHERE id=$1
 	`, user.ID, nullIfEmpty(user.DeviceID), nullIfEmpty(user.Email), nullIfEmpty(user.PasswordHash), 
-	   user.Gender, user.Interests, user.IsAnonymous, nullIfZero(user.TelegramID),
-	   nullIfEmpty(user.FirstName), nullIfEmpty(user.LastName), nullIfEmpty(user.Username), nullIfEmpty(user.PhotoURL))
+	   user.Gender, user.Interests, user.IsAnonymous)
 	if err != nil {
 		return err
 	}
@@ -94,10 +88,8 @@ func (r *PGUserRepository) getOne(ctx context.Context, q string, arg any) (*doma
 
 	var u domain.User
 	var deviceID, email, passwordHash *string
-	var telegramID *int64
-	var firstName, lastName, username, photoURL *string
 
-	if err := row.Scan(&u.ID, &deviceID, &email, &passwordHash, &u.Gender, &u.Interests, &u.IsAnonymous, &telegramID, &firstName, &lastName, &username, &photoURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &deviceID, &email, &passwordHash, &u.Gender, &u.Interests, &u.IsAnonymous, &u.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New("user not found")
 		}
@@ -107,11 +99,6 @@ func (r *PGUserRepository) getOne(ctx context.Context, q string, arg any) (*doma
 	if deviceID != nil { u.DeviceID = *deviceID }
 	if email != nil { u.Email = *email }
 	if passwordHash != nil { u.PasswordHash = *passwordHash }
-	if telegramID != nil { u.TelegramID = *telegramID }
-	if firstName != nil { u.FirstName = *firstName }
-	if lastName != nil { u.LastName = *lastName }
-	if username != nil { u.Username = *username }
-	if photoURL != nil { u.PhotoURL = *photoURL }
 
 	return &u, nil
 }

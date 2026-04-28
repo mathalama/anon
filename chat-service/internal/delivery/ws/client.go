@@ -8,13 +8,15 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/rs/zerolog/log"
 )
 
 const (
 	writeWait      = 10 * time.Second
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 65536 // Increased for WebRTC SDP
 )
 
 func (c *Client) ReadPump() {
@@ -41,20 +43,23 @@ func (c *Client) ReadPump() {
 			c.sendJSON(ServerMessage{Type: "pong", Timestamp: time.Now().Unix()})
 
 		case "typing":
-			c.hub.sendToRoom(c.RoomID, func(recipientID string) ServerMessage {
-				if recipientID == c.UserID {
-					return ServerMessage{Type: ""}
-				}
-				return ServerMessage{Type: "partner_typing", IsTyping: in.IsTyping, Timestamp: time.Now().Unix()}
-			})
+			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{Type: "partner_typing", IsTyping: in.IsTyping, Timestamp: time.Now().Unix()})
 
 		case "message":
 			if in.Content == "" {
 				continue
 			}
 
-			toxic, err := c.isToxic(context.Background(), in.Content)
+			// Sanitize input content for XSS protection
+			content := bluemonday.StrictPolicy().Sanitize(in.Content)
+			if content == "" && in.Content != "" {
+				c.sendError("INVALID_CONTENT", "message contains restricted content")
+				continue
+			}
+
+			toxic, err := c.isToxic(context.Background(), content)
 			if err != nil {
+				log.Error().Err(err).Str("user_id", c.UserID).Msg("failed to moderate message")
 				c.sendError("MODERATION_ERROR", "failed to moderate message")
 				continue
 			}
@@ -66,24 +71,16 @@ func (c *Client) ReadPump() {
 			if err := c.repo.SaveMessage(context.Background(), &domain.Message{
 				RoomID:   c.RoomID,
 				SenderID: c.UserID,
-				Content:  in.Content,
+				Content:  content,
 				SentAt:   time.Now(),
 			}); err != nil {
+				log.Error().Err(err).Str("user_id", c.UserID).Msg("failed to save message")
 				c.sendError("DB_ERROR", "failed to save message")
 				continue
 			}
 
 			ts := time.Now().Unix()
-			c.hub.sendToRoom(c.RoomID, func(recipientID string) ServerMessage {
-				if recipientID == "" {
-					return ServerMessage{Type: ""}
-				}
-				sender := "partner"
-				if recipientID == c.UserID {
-					sender = "me"
-				}
-				return ServerMessage{Type: "message", Content: in.Content, Sender: sender, Timestamp: ts}
-			})
+			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{Type: "message", Content: content, Timestamp: ts})
 
 		case "next":
 			if err := c.endRoom(context.Background()); err != nil {
@@ -91,6 +88,14 @@ func (c *Client) ReadPump() {
 				continue
 			}
 			c.hub.DisconnectRoom(c.RoomID)
+
+		case "rtc:offer", "rtc:answer", "rtc:ice-candidate", "call:start", "call:end":
+			ts := time.Now().Unix()
+			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{
+				Type:      in.Type,
+				Payload:   in.Payload,
+				Timestamp: ts,
+			})
 
 		default:
 			c.sendError("UNKNOWN_TYPE", "unknown message type")
@@ -106,12 +111,10 @@ func (c *Client) WritePump() {
 	}()
 	for {
 		select {
-		case message, ok := <-c.send:
+		case <-c.done:
+			return
+		case message := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return

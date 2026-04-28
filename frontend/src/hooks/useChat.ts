@@ -6,10 +6,14 @@ import { api } from '@/lib/api';
 export function useChat() {
   const store = useChatStore();
 
-  const startSearch = useCallback(async (filter = {}) => {
+  const startSearch = useCallback(async (filter: any = {}) => {
     try {
       store.setStatus('searching');
-      await api.search(filter);
+      await api.search({
+        my_gender: store.myGender,
+        gender: store.selectedGender,
+        mode: store.selectedMode
+      });
     } catch (err) {
       console.error('Search failed', err);
       store.setStatus('idle');
@@ -26,31 +30,47 @@ export function useChat() {
   }, [store]);
 
   useEffect(() => {
-    let pollInterval: NodeJS.Timeout;
-
     if (store.status === 'searching') {
-      pollInterval = setInterval(async () => {
+      let token = localStorage.getItem('access_token') || '';
+      if (token === 'undefined' || token === 'null') token = '';
+      
+      const sseUrl = api.getMatchSSEUrl(token);
+      console.log('useChat: Initiating SSE connection to:', sseUrl);
+      
+      const eventSource = new EventSource(sseUrl);
+
+      eventSource.onopen = () => {
+        console.log('useChat: SSE connection opened');
+      };
+
+      eventSource.onmessage = (event) => {
+        console.log('useChat: SSE message received:', event.data);
         try {
-          const data = await api.getStatus();
+          const data = JSON.parse(event.data);
           if (data.status === 'matched' && data.room_id) {
-            clearInterval(pollInterval);
+            console.log('useChat: Match confirmed! RoomID:', data.room_id);
+            store.setMode(data.mode || 'text');
+            store.setIsInitiator(!!data.is_initiator);
+            store.setPartnerGender(data.partner_gender || 'unknown');
             store.setRoomId(data.room_id);
             store.setStatus('matched');
-            
-            const token = localStorage.getItem('access_token');
-            if (token) {
-              chatSocket.connect(data.room_id, token);
-            }
+            chatSocket.connect(data.room_id, token);
+            eventSource.close();
           }
         } catch (err) {
-          console.error('Poll failed', err);
+          console.error('useChat: SSE data parse failed', err);
         }
-      }, 1000);
-    }
+      };
 
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
+      eventSource.onerror = (err) => {
+        console.error('useChat: SSE Error details:', err);
+        eventSource.close();
+      };
+
+      return () => {
+        eventSource.close();
+      };
+    }
   }, [store.status, store.setRoomId, store.setStatus]);
 
   return {

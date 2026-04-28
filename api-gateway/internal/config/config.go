@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -14,6 +15,7 @@ type Config struct {
 	MatchmakingServiceURL string
 	ChatServiceURL        string
 	ModerationServiceURL  string
+	AllowedOrigins        []string
 }
 
 func Load() *Config {
@@ -27,6 +29,7 @@ func Load() *Config {
 		MatchmakingServiceURL: getEnv("MATCHMAKING_SERVICE_URL", "http://matchmaking-service:8082"),
 		ChatServiceURL:        getEnv("CHAT_SERVICE_URL", "http://chat-service:8083"),
 		ModerationServiceURL:  getEnv("MODERATION_SERVICE_URL", "http://moderation-service:8084"),
+		AllowedOrigins:        strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:*,http://127.0.0.1:*,http://*.mathalama.dev,https://*.mathalama.dev"), ","),
 	}
 }
 

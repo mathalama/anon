@@ -34,6 +34,32 @@ services:
     networks:
       - nektokz-network
 
+  coturn:
+    image: coturn/coturn
+    container_name: nektokz-coturn
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+    environment:
+      - TURN_USER=${TURN_USER}
+      - TURN_PASSWORD=${TURN_PASSWORD}
+      - TURN_EXTERNAL_IP=${TURN_EXTERNAL_IP}
+    command:
+      - turnserver
+      - --log-file=stdout
+      - --external-ip=${TURN_EXTERNAL_IP}
+      - --realm=nektokz.kz
+      - --user=$${TURN_USER}:$${TURN_PASSWORD}
+      - --listening-port=3478
+      - --tls-listening-port=5349
+      - --min-port=49152
+      - --max-port=65535
+      - --verbose
+    networks:
+      - nektokz-network
+
 networks:
   nektokz-network:
     name: nektokz-network

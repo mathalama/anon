@@ -69,7 +69,7 @@ func (c *ChatClient) Disconnect(ctx context.Context, userID string) error {
 	payload := map[string]any{"user_id": userID}
 	b, _ := json.Marshal(payload)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/internal/disconnect", bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/internal/disconnect", bytes.NewReader(b))
 	if err != nil {
 		return err
 	}

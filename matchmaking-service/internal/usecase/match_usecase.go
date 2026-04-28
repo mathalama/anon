@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ func NewMatchUsecase(repo domain.MatchRepository, user domain.UserClient, chat d
 }
 
 func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.Filter) error {
+	log.Printf("MATCHMAKING: Search requested by user %s", userID)
 	if filter.Gender == "" {
 		filter.Gender = "any"
 	}
@@ -51,55 +53,88 @@ func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.
 		return err
 	}
 
-	// 3. Try to find a match immediately
-	go u.RunMatching(context.Background(), entry)
-
 	return nil
 }
 
-func (u *matchUsecase) RunMatching(ctx context.Context, target *domain.QueueEntry) {
-	// Simplified matching loop for MVP
-	// In a real app, this would be a background process or triggered by events.
-	// Here we just try once for demonstration or use a simple timer.
-	
-	// Wait a bit or loop
-	timeout := u.matchTimeoutSec
-	if timeout <= 0 {
-		timeout = 60
+func (u *matchUsecase) StartWorker(ctx context.Context) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			u.RunMatching(ctx)
+		}
 	}
-	dropAfter := u.matchFilterDropSec
-	if dropAfter <= 0 {
-		dropAfter = 30
+}
+
+func (u *matchUsecase) RunMatching(ctx context.Context) {
+	candidates, err := u.repo.GetQueue(ctx)
+	if err != nil || len(candidates) < 2 {
+		return
 	}
 
-	for i := 0; i < timeout; i++ { // Timeout after N seconds
-		time.Sleep(1 * time.Second)
-		
-		candidates, _ := u.repo.GetQueue(ctx)
-		partner := Match(target, candidates)
-		if partner != nil {
-			// Found a match!
-			roomID := uuid.New().String()
-			room := &domain.Room{
-				ID:        roomID,
-				UserA:     target.UserID,
-				UserB:     partner.UserID,
-				CreatedAt: time.Now(),
-			}
-			
-			u.repo.RemoveFromQueue(ctx, target.UserID)
-			u.repo.RemoveFromQueue(ctx, partner.UserID)
-			u.repo.CreateRoom(ctx, room)
-			
-			u.chatClient.CreateRoom(ctx, roomID, target.UserID, partner.UserID)
-			return
+	// Group by mode to reduce cross-checks
+	byMode := make(map[string][]*domain.QueueEntry)
+	for _, c := range candidates {
+		byMode[c.Filter.Mode] = append(byMode[c.Filter.Mode], c)
+	}
+
+	matched := make(map[string]bool)
+
+	for mode, modeCandidates := range byMode {
+		// Limit candidates per mode to prevent O(N^2) explosion
+		if len(modeCandidates) > 500 {
+			modeCandidates = modeCandidates[:500]
 		}
 
-		// Filter drop logic after N seconds
-		if i == dropAfter {
-			target.Filter.Gender = "any"
-			target.Filter.Interests = nil
-			_ = u.repo.AddToQueue(ctx, target)
+		for i := 0; i < len(modeCandidates); i++ {
+			userA := modeCandidates[i]
+			if matched[userA.UserID] {
+				continue
+			}
+
+			for j := i + 1; j < len(modeCandidates); j++ {
+				userB := modeCandidates[j]
+				if matched[userB.UserID] {
+					continue
+				}
+
+				if IsCompatible(userA.Filter, userB.Filter) {
+					roomID := uuid.New().String()
+					room := &domain.Room{
+						ID:        roomID,
+						UserA:     userA.UserID,
+						UserB:     userB.UserID,
+						Mode:      mode,
+						CreatedAt: time.Now(),
+					}
+
+					if err := u.repo.CreateRoom(ctx, room); err == nil {
+						_ = u.chatClient.CreateRoom(ctx, roomID, userA.UserID, userB.UserID)
+						
+						log.Printf("MATCHMAKING: Match found in %s! %s <-> %s", mode, userA.UserID, userB.UserID)
+						_ = u.repo.PublishMatch(ctx, userA.UserID, &domain.MatchFound{
+							RoomID: roomID, 
+							Mode: room.Mode, 
+							IsInitiator: true, 
+							PartnerGender: userB.Filter.MyGender,
+						})
+						_ = u.repo.PublishMatch(ctx, userB.UserID, &domain.MatchFound{
+							RoomID: roomID, 
+							Mode: room.Mode, 
+							IsInitiator: false, 
+							PartnerGender: userA.Filter.MyGender,
+						})
+						
+						matched[userA.UserID] = true
+						matched[userB.UserID] = true
+						break
+					}
+				}
+			}
 		}
 	}
 }
@@ -116,4 +151,11 @@ func (u *matchUsecase) Next(ctx context.Context, userID string) error {
 	// End current room and start new search
 	// For MVP, just start a new search
 	return u.Search(ctx, userID, domain.Filter{Gender: "any"})
+}
+
+func (u *matchUsecase) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
+	return u.repo.SubscribeToMatch(ctx, userID)
+}
+func (u *matchUsecase) HealthCheck(ctx context.Context) error {
+	return u.repo.HealthCheck(ctx)
 }

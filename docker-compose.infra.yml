@@ -62,7 +62,7 @@ services:
 
 networks:
   nektokz-network:
-    name: nektokz-network
+    external: true
 
 volumes:
   postgres_data:

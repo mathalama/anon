@@ -50,3 +50,4 @@ jobs:
 
             docker network inspect nektokz-network >/dev/null 2>&1 || docker network create nektokz-network
             docker compose -f docker-compose.infra.yml up -d
+

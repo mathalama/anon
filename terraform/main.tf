@@ -37,7 +37,7 @@ resource "oci_core_instance" "free_server" {
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data           = filebase64("${path.module}/setup.sh") 
+    user_data           = base64encode(file("${path.module}/setup.sh")) 
   }
 }
 

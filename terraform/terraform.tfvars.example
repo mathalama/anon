@@ -1,0 +1,7 @@
+tenancy_ocid     = "ocid1.tenancy.oc1.."
+user_ocid        = "ocid1.user.oc1.."
+fingerprint      = ""
+region           = ""
+compartment_id   = "ocid1.tenancy.oc1.."
+subnet_id        = "ocid1.subnet.oc1.eu-stockholm-1."
+private_key_path = ""

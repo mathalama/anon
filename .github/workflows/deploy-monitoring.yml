@@ -1,0 +1,32 @@
+name: Deploy Monitoring & Proxy
+on:
+  push:
+    paths:
+      - 'docker-compose.monitoring.yml'
+      - 'monitoring/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-monitoring:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy Monitoring Files
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.monitoring.yml,monitoring/**"
+          target: "${{ secrets.DEPLOY_PATH }}/monitoring"
+
+      - name: Start Monitoring Stack
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}/monitoring
+            docker compose -f docker-compose.monitoring.yml up -d

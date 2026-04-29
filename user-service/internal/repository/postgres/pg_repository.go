@@ -19,6 +19,9 @@ func NewPGUserRepository(pool *pgxpool.Pool) *PGUserRepository {
 }
 
 func (r *PGUserRepository) Create(ctx context.Context, user *domain.User) error {
+	if user.Interests == nil {
+		user.Interests = []string{}
+	}
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO users (id, device_id, email, password_hash, gender, interests, is_anonymous, created_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -41,6 +44,9 @@ func (r *PGUserRepository) GetByEmail(ctx context.Context, email string) (*domai
 
 
 func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error {
+	if user.Interests == nil {
+		user.Interests = []string{}
+	}
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE users
 		SET device_id=$2, email=$3, password_hash=$4, gender=$5, interests=$6, is_anonymous=$7

@@ -22,13 +22,18 @@ data "oci_identity_availability_domains" "ads" {
 resource "oci_core_instance" "free_server" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_id
-  shape               = "VM.Standard.E2.1.Micro" # Бесплатный тариф
+  shape               = "VM.Standard.E2.1.Micro"
   display_name        = "mathalama-tf-server"
 
   ingress_security_rules {
     protocol = "6" # TCP
     source   = "0.0.0.0/0"
     tcp_options { min = 80;   max = 80   }
+  }
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options { min = 81;   max = 81   } # NPM Admin
   }
   ingress_security_rules {
     protocol = "6"

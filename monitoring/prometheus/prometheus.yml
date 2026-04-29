@@ -16,7 +16,7 @@ scrape_configs:
       - targets:
           - 'api-gateway:8080'
           - 'user-service:8081'
-          - 'chat-service:8083'
-          - 'matchmaking-service:8082'
+          - 'chat-service:8082'
+          - 'matchmaking-service:8083'
           - 'moderation-service:8084'
           - 'notification-service:8085'

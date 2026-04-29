@@ -47,7 +47,7 @@ services:
     environment:
       - PORT=8081
       - REPO_DRIVER=postgres
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nektokz-postgres:5432/users_db?sslmode=disable
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nektokz-postgres:5432/users_db_test?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
     healthcheck:

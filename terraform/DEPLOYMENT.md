@@ -12,7 +12,7 @@ Before deployment, ensure you have the following installed:
 ## 2. Infrastructure Provisioning (Terraform)
 The infrastructure is hosted on Oracle Cloud Infrastructure (OCI). To provision the resources:
 
-1.  Navigate to the `terraform/` directory.
+1.  Ensure you are in the `terraform/` directory.
 2.  Initialize the workspace:
     ```bash
     terraform init

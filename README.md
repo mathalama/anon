@@ -243,7 +243,7 @@ terraform apply
 
 After apply, the public IP is printed as output: `instance_public_ip`.
 
-For full deployment guide see [DEPLOYMENT.md](./DEPLOYMENT.md).
+Refer to [DEPLOYMENT.md](/terraform/DEPLOYMENT.md) for OCI cloud deployment details.
 
 ---
 

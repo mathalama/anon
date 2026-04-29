@@ -78,8 +78,10 @@ artifacts/
 scratch/
 audit_report.md
 project_audit_report.md
+# --- Terraform ---
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
 terraform/terraform.tfvars
 terraform/.terraform.lock.hcl
-terraform/terraform.tfstate.backup
-.gitignore
-terraform/.terraform/providers/registry.terraform.io/oracle/oci/8.11.0/windows_amd64/terraform-provider-oci_v8.11.0
+

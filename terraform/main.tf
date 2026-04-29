@@ -25,6 +25,27 @@ resource "oci_core_instance" "free_server" {
   shape               = "VM.Standard.E2.1.Micro" # Бесплатный тариф
   display_name        = "mathalama-tf-server"
 
+  ingress_security_rules {
+    protocol = "6" # TCP
+    source   = "0.0.0.0/0"
+    tcp_options { min = 80;   max = 80   }
+  }
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options { min = 3000; max = 3000 }
+  }
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options { min = 9090; max = 9090 }
+  }
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+    tcp_options { min = 22;   max = 22   }
+  }
+
   create_vnic_details {
     subnet_id        = var.subnet_id
     assign_public_ip = true

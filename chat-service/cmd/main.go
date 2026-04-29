@@ -23,6 +23,7 @@ import (
 	"github.com/mathalama/nektokz/chat-service/internal/delivery/ws"
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
 	"github.com/mathalama/nektokz/chat-service/internal/repository/postgres"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -77,6 +78,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	delivery.NewChatHandler(r, hub, repo, modCli, cfg.InternalToken)
+
+	// Prometheus metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

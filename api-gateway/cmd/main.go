@@ -17,6 +17,7 @@ import (
 	"github.com/mathalama/nektokz/api-gateway/internal/proxy"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -108,6 +109,9 @@ func main() {
 	// WebSocket handler
 	r.HandleFunc("/ws", p.Handler)
 	r.HandleFunc("/ws/*", p.Handler)
+
+	// Prometheus metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Fallback for any other requests
 	r.NotFound(p.Handler)

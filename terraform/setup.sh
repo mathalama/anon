@@ -21,6 +21,9 @@ apt-get install -y docker.io docker-compose-v2 git ufw iptables-persistent
 iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
 iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
 iptables -I INPUT 6 -m state --state NEW -p tcp --dport 81 -j ACCEPT
+iptables -I INPUT 6 -m state --state NEW -p tcp --dport 3000 -j ACCEPT
+iptables -I INPUT 6 -m state --state NEW -p tcp --dport 9090 -j ACCEPT
+iptables -I INPUT 6 -m state --state NEW -p tcp --dport 22 -j ACCEPT
 netfilter-persistent save
 
 # 4. Create devops user and grant permissions

@@ -18,6 +18,7 @@ import (
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/repository/redis"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/usecase"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -47,6 +48,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	delivery.NewMatchHandler(r, uc)
+
+	// Prometheus metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

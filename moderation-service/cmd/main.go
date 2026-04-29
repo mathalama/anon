@@ -19,6 +19,7 @@ import (
 	"github.com/mathalama/nektokz/moderation-service/internal/repository/memory"
 	"github.com/mathalama/nektokz/moderation-service/internal/repository/postgres"
 	"github.com/mathalama/nektokz/moderation-service/internal/usecase"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -61,6 +62,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	delivery.New(r, uc, cfg.InternalToken)
+
+	// Prometheus metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	log.Printf("moderation-service starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {

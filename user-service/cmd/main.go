@@ -17,6 +17,7 @@ import (
 	"github.com/mathalama/nektokz/user-service/internal/domain"
 	"github.com/mathalama/nektokz/user-service/internal/repository/postgres"
 	"github.com/mathalama/nektokz/user-service/internal/usecase"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -59,6 +60,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	delivery.NewUserHandler(r, uc, cfg.InternalToken)
+
+	// Prometheus metrics
+	r.Handle("/metrics", promhttp.Handler())
 
 	log.Printf("user-service starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {

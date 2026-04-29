@@ -26,14 +26,14 @@ resource "oci_core_instance" "free_server" {
   display_name        = "mathalama-tf-server"
 
   ingress_security_rules {
-    protocol = "6" # TCP
+    protocol = "6"
     source   = "0.0.0.0/0"
     tcp_options { min = 80;   max = 80   }
   }
   ingress_security_rules {
     protocol = "6"
     source   = "0.0.0.0/0"
-    tcp_options { min = 81;   max = 81   } # NPM Admin
+    tcp_options { min = 81;   max = 81   }
   }
   ingress_security_rules {
     protocol = "6"

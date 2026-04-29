@@ -1,55 +1,117 @@
 # Nektokz Microservices Ecosystem
 
-## Overview
-Nektokz is a modular, high-performance microservices-based application designed for real-time communication and matchmaking. The system is built using Go, PostgreSQL, Redis, and is orchestrated via Docker Compose and Terraform for automated infrastructure management.
+[![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go)](https://golang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
+[![Terraform](https://img.shields.io/badge/Terraform-1.0+-7B42BC?style=flat-square&logo=terraform)](https://www.terraform.io/)
 
-## System Architecture
-The project follows a decoupled microservices architecture to ensure scalability, fault isolation, and independent maintainability.
+Nektokz is a high-performance, modular microservices ecosystem designed for real-time communication, matchmaking, and social interaction. Built with **Go** (Backend) and **Next.js** (Frontend).
 
-### Core Services
-*   **API Gateway**: The central entry point for all client requests, handling routing and security.
-*   **User Service**: Manages user lifecycle, authentication, and profile data.
-*   **Chat Service**: Facilitates real-time messaging using WebSockets with persistent message storage.
-*   **Matchmaking Service**: Connects users based on specific criteria using low-latency Redis caching.
-*   **Moderation Service**: Implements safety protocols, word filtering, and user reporting.
-*   **Notification Service**: Handles internal system alerts and cross-service communication.
+---
 
-## Technology Stack
-*   **Backend**: Go 1.25 with `chi` router.
-*   **Database**: PostgreSQL 16 (Relational) and Redis 7 (Cache).
-*   **WebRTC**: Coturn for STUN/TURN media traversal.
-*   **Infrastructure**: Terraform (Oracle Cloud Infrastructure).
-*   **Containerization**: Docker & Docker Compose.
-*   **Monitoring**: Prometheus (Metrics) and Grafana (Visualization).
+## Prerequisites
 
-## Infrastructure & Deployment
+Ensure you have the following installed:
 
-### Terraform
-The infrastructure is provisioned as code using Terraform. It manages the Compute Instance (VM), Virtual Cloud Network (VCN), and Security Rules for the cloud environment.
+- **Go 1.25+**
+- **Node.js 20+** & **npm**
+- **Docker & Docker Compose v2+**
+- **Make** (for Windows, ensure `make` is in your PATH or use PowerShell scripts directly)
 
-### Docker Orchestration
-The system is divided into three logical layers:
-1.  **Infrastructure Layer**: PostgreSQL, Redis, Coturn.
-2.  **Service Layer**: All Go-based microservices.
-3.  **Monitoring Layer**: Prometheus, Grafana, Node Exporter.
+---
 
-## Monitoring and Observability
-All services expose a `/metrics` endpoint for Prometheus scraping.
-*   **Prometheus**: Collects system and application-level metrics.
-*   **Grafana**: Provides real-time dashboards for service health and performance monitoring.
-*   **Health Checks**: Each service implements a custom `/health` endpoint to monitor dependency status (e.g., database connectivity).
+## Quick Start (Backend)
 
-## Deployment Guide
-Refer to the `DEPLOYMENT.md` file for step-by-step instructions on provisioning the cloud environment and launching the application stack.
+### 1. Configure Environment
+```bash
+cp .env.example .env
+```
 
-## Development
-To run the project locally:
-1.  Initialize the infrastructure: `docker compose -f docker-compose.infra.yml up -d`
-2.  Start the services: `docker compose -f docker-compose.services.yml up -d`
-3.  Access the API Gateway at `http://localhost:8080`
+### 2. Launch Infrastructure
+Start PostgreSQL, Redis, and Coturn:
+```bash
+make up-infra
+```
 
-## Database Migrations
-Migrations are automatically applied on service startup. Ensure that SQL scripts are placed in the respective `migrations/` directory of each service.
+### 3. Run Migrations
+```bash
+make migrate
+```
+
+### 4. Start Services
+```bash
+make up-services
+```
+
+---
+
+## Frontend Setup
+
+The frontend is a modern Next.js application located in the `/frontend` directory.
+
+### 1. Install Dependencies
+```bash
+cd frontend
+npm install
+```
+
+### 2. Configure Environment
+```bash
+cp .env.local.example .env.local  # If available, or use defaults
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+The frontend will be available at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Project Structure
+
+```text
+├── api-gateway/          # Central entry point & routing
+├── user-service/         # Authentication & profile management
+├── chat-service/         # Real-time WebSocket messaging
+├── matchmaking-service/  # User matching algorithms
+├── moderation-service/   # Content filtering & reporting
+├── notification-service/ # Internal alerts
+├── frontend/             # Next.js web application
+├── docker/               # Dockerfiles & Compose layers
+├── terraform/            # OCI Infrastructure as Code
+└── monitoring/           # Prometheus & Grafana
+```
+
+---
+
+## Makefile Commands
+
+| Command | Description |
+| :--- | :--- |
+| `make up` | Start all backend containers |
+| `make down` | Stop and remove all containers |
+| `make migrate` | Run database migrations |
+| `make logs-services` | Tail logs for Go services |
+| `make logs-infra` | View logs for DBs & Redis |
+
+---
+
+## Dashboards
+
+- **API Gateway**: [http://localhost:8080](http://localhost:8080)
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Grafana**: [http://localhost:3000](http://localhost:3000) (Note: Port collision with Frontend if run on same host; check docker-compose)
+- **Prometheus**: [http://localhost:9090](http://localhost:9090)
+
+---
+
+## Deployment
+
+Refer to [DEPLOYMENT.md](file:///c:/Users/Admin/Desktop/sumdyk/DEPLOYMENT.md) for OCI cloud deployment details.
+
+---
 
 ## License
-This project is for academic and professional demonstration purposes. All rights reserved.
+
+This project is for demonstration purposes. All rights reserved.

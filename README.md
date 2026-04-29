@@ -1,117 +1,258 @@
-# Nektokz Microservices Ecosystem
+# NektoKZ — Anonymous Chat & Matchmaking Platform
 
 [![Go Version](https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go)](https://golang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![Docker](https://img.shields.io/badge/Docker-24.0+-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
 [![Terraform](https://img.shields.io/badge/Terraform-1.0+-7B42BC?style=flat-square&logo=terraform)](https://www.terraform.io/)
 
-Nektokz is a high-performance, modular microservices ecosystem designed for real-time communication, matchmaking, and social interaction. Built with **Go** (Backend) and **Next.js** (Frontend).
+NektoKZ is a high-performance, production-grade microservices platform for real-time anonymous text and voice communication. Built with **Go** (backend), **Next.js** (frontend), deployed on **Oracle Cloud Infrastructure** via **Terraform**.
+
+**Live Demo**: [nekto.mathalama.dev](https://nekto.mathalama.dev)
+
+---
+
+## Architecture Overview
+
+The system follows a microservices architecture with all services communicating over an isolated Docker network (`nektokz-network`). Only the API Gateway is exposed to the public internet via Nginx Proxy Manager.
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Internet                         │
+└──────────────────────┬──────────────────────────────┘
+                       │
+              ┌────────▼────────┐
+              │  Nginx Proxy    │
+              │   Manager       │
+              └────────┬────────┘
+                       │
+              ┌────────▼────────┐
+              │   API Gateway   │  :8080
+              └────────┬────────┘
+                       │  nektokz-network
+        ┌──────────────┼──────────────────┐
+        │              │                  │
+┌───────▼──────┐ ┌─────▼──────┐ ┌────────▼────────┐
+│ user-service │ │chat-service│ │matchmaking-svc  │
+│    :8081     │ │   :8083    │ │     :8082       │
+└──────────────┘ └────────────┘ └─────────────────┘
+        │              │
+┌───────▼──────────────▼───────┐
+│   nektokz-postgres  :5432    │
+│   nektokz-redis     :6379    │
+└──────────────────────────────┘
+```
+
+### Services
+
+| Service | Port | Description |
+|---|---|---|
+| api-gateway | 8080 | Central entry point, request routing |
+| user-service | 8081 | Authentication & profile management |
+| matchmaking-service | 8082 | User matching algorithms |
+| chat-service | 8083 | Real-time WebSocket messaging |
+| moderation-service | 8084 | Content filtering & reporting |
+| notification-service | 8085 | Internal event notifications |
+
+### Infrastructure
+
+| Component | Technology |
+|---|---|
+| Backend | Go 1.25 / Chi v5 |
+| Frontend | Next.js 15 |
+| Database | PostgreSQL 16 / Redis 7 |
+| WebRTC | Coturn (STUN/TURN) |
+| Monitoring | Prometheus / Grafana / Node Exporter |
+| IaC | Terraform (Oracle Cloud / OCI) |
+| Reverse Proxy | Nginx Proxy Manager |
 
 ---
 
 ## Prerequisites
 
-Ensure you have the following installed:
-
-- **Go 1.25+**
-- **Node.js 20+** & **npm**
-- **Docker & Docker Compose v2+**
-- **Make** (for Windows, ensure `make` is in your PATH or use PowerShell scripts directly)
+- **Docker & Docker Compose v2+** — required
+- **Go 1.25+** — only if running services locally without Docker
+- **Node.js 20+** & **npm** — only if running frontend locally
+- **Make** — optional, used as a shortcut for Docker Compose commands
 
 ---
 
-## Quick Start (Backend)
+## Local Setup
 
-### 1. Configure Environment
+### 1. Clone & Configure Environment
+
 ```bash
+git clone https://github.com/mathalama/anon.git
+cd anon
 cp .env.example .env
+# Edit .env with your values
 ```
 
-### 2. Launch Infrastructure
-Start PostgreSQL, Redis, and Coturn:
+### 2. Start Infrastructure (PostgreSQL, Redis, Coturn)
+
+**With Make:**
 ```bash
 make up-infra
 ```
 
-### 3. Run Migrations
+**Without Make (Docker Compose directly):**
+```bash
+docker compose -f docker-compose.infra.yml up -d
+```
+
+### 3. Run Database Migrations
+
+**With Make:**
 ```bash
 make migrate
 ```
 
-### 4. Start Services
+**Without Make:**
+```bash
+docker compose -f docker-compose.infra.yml run --rm migrate
+```
+
+### 4. Start All Microservices
+
+**With Make:**
 ```bash
 make up-services
 ```
 
----
+**Without Make:**
+```bash
+docker compose -f docker-compose.services.yml up -d
+```
 
-## Frontend Setup
+### 5. Start Monitoring Stack (Optional)
 
-The frontend is a modern Next.js application located in the `/frontend` directory.
+```bash
+docker compose -f docker-compose.monitoring.yml up -d
+```
 
-### 1. Install Dependencies
+### 6. Start Frontend
+
 ```bash
 cd frontend
 npm install
-```
-
-### 2. Configure Environment
-```bash
-cp .env.local.example .env.local  # If available, or use defaults
-```
-
-### 3. Run Development Server
-```bash
 npm run dev
-```
-The frontend will be available at [http://localhost:3000](http://localhost:3000).
-
----
-
-## Project Structure
-
-```text
-├── api-gateway/          # Central entry point & routing
-├── user-service/         # Authentication & profile management
-├── chat-service/         # Real-time WebSocket messaging
-├── matchmaking-service/  # User matching algorithms
-├── moderation-service/   # Content filtering & reporting
-├── notification-service/ # Internal alerts
-├── frontend/             # Next.js web application
-├── docker/               # Dockerfiles & Compose layers
-├── terraform/            # OCI Infrastructure as Code
-└── monitoring/           # Prometheus & Grafana
 ```
 
 ---
 
 ## Makefile Commands
 
-| Command | Description |
-| :--- | :--- |
-| `make up` | Start all backend containers |
-| `make down` | Stop and remove all containers |
-| `make migrate` | Run database migrations |
-| `make logs-services` | Tail logs for Go services |
-| `make logs-infra` | View logs for DBs & Redis |
+| Command | Docker Compose Equivalent | Description |
+|---|---|---|
+| `make up` | `docker compose -f docker-compose.infra.yml -f docker-compose.services.yml up -d` | Start all backend containers |
+| `make up-infra` | `docker compose -f docker-compose.infra.yml up -d` | Start PostgreSQL, Redis, Coturn |
+| `make up-services` | `docker compose -f docker-compose.services.yml up -d` | Start all microservices |
+| `make down` | `docker compose -f docker-compose.infra.yml -f docker-compose.services.yml down` | Stop and remove all containers |
+| `make migrate` | `docker compose -f docker-compose.infra.yml run --rm migrate` | Run database migrations |
+| `make logs-services` | `docker compose -f docker-compose.services.yml logs -f` | Tail logs for Go services |
+| `make logs-infra` | `docker compose -f docker-compose.infra.yml logs -f` | View logs for DBs & Redis |
 
 ---
 
-## Dashboards
+## Project Structure
 
-- **API Gateway**: [http://localhost:8080](http://localhost:8080)
-- **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Grafana**: [http://localhost:3000](http://localhost:3000) (Note: Port collision with Frontend if run on same host; check docker-compose)
-- **Prometheus**: [http://localhost:9090](http://localhost:9090)
+```
+├── api-gateway/              # Central entry point & routing
+├── user-service/             # Authentication & profile management
+├── chat-service/             # Real-time WebSocket messaging
+├── matchmaking-service/      # User matching algorithms
+├── moderation-service/       # Content filtering & reporting
+├── notification-service/     # Internal event notifications
+├── frontend/                 # Next.js web application
+├── docker/
+│   └── postgres/init/        # DB initialization scripts
+├── terraform/                # OCI Infrastructure as Code
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── setup.sh
+│   ├── outputs.tf
+│   └── terraform.tfvars
+├── monitoring/
+│   └── prometheus/           # Prometheus config & scrape targets
+├── docker-compose.infra.yml  # PostgreSQL, Redis, Coturn
+├── docker-compose.services.yml # All microservices
+├── docker-compose.monitoring.yml # Prometheus, Grafana, Node Exporter
+├── Makefile
+└── .env.example
+```
 
 ---
 
-## Deployment
+## Service Endpoints (Local)
 
-Refer to [DEPLOYMENT.md](file:///c:/Users/Admin/Desktop/sumdyk/DEPLOYMENT.md) for OCI cloud deployment details.
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| API Gateway | http://localhost:8080 |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 |
+
+---
+
+## Monitoring & Observability
+
+The monitoring stack uses Prometheus for metrics collection and Grafana for visualization.
+
+**Prometheus** scrapes metrics from all 6 microservices via `/metrics` endpoints on their respective ports.
+
+**Grafana** dashboards include:
+- Service availability (up/down status per service)
+- Node Exporter: CPU, RAM, Disk, Network for the host machine
+
+To verify all services are UP:
+1. Open Prometheus at `:9090` → Status → Targets
+2. All `nektokz-services` targets should show state `UP`
+
+---
+
+## Infrastructure as Code (Terraform)
+
+The server is provisioned on **Oracle Cloud Infrastructure (OCI)** using Terraform. See [`terraform/`](./terraform/) for full configuration.
+
+### Provisioned Resources
+
+- Compute Instance: `VM.Standard.E2.1.Micro` (Always Free tier)
+- OS: Ubuntu 24.04 LTS
+- Region: EU Stockholm (eu-stockholm-1)
+
+### Open Ports (Security Rules)
+
+| Port | Protocol | Purpose |
+|---|---|---|
+| 22 | TCP | SSH management |
+| 80 | TCP | HTTP / API Gateway |
+| 443 | TCP | HTTPS |
+| 3000 | TCP | Grafana |
+| 9090 | TCP | Prometheus |
+
+### Deploy Infrastructure
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Fill in your OCI credentials
+
+terraform init
+terraform plan
+terraform apply
+```
+
+After apply, the public IP is printed as output: `instance_public_ip`.
+
+For full deployment guide see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+---
+
+## CI/CD
+
+GitHub Actions workflows are located in `.github/workflows/`. The pipeline handles automated building and image publishing to `ghcr.io/mathalama/`.
 
 ---
 
 ## License
 
-This project is for demonstration purposes. All rights reserved.
+This project is for educational and demonstration purposes. All rights reserved.

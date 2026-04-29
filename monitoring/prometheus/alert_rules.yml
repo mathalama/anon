@@ -1,0 +1,21 @@
+groups:
+  - name: incident_simulation_alerts
+    rules:
+      - alert: ChatServiceDown
+        expr: up{instance="chat-service:8083"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Incident: Chat Service is unreachable"
+          description: "The Chat Service target is down. Root cause: Likely invalid database configuration preventing service startup. [Assignment 4 Simulation]"
+
+      - alert: ChatServiceDatabaseError
+        expr: |
+          sum(rate(http_requests_total{instance="chat-service:8083", status=~"5.."}[1m])) > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical: Database Connection Failure"
+          description: "Chat Service is reporting 5xx errors. Analysis: Database connection string or hostname is invalid. [Incident Response Active]"

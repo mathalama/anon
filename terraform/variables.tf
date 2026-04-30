@@ -6,3 +6,8 @@ variable "compartment_id" {}
 variable "subnet_id" {}
 variable "private_key_path" {}
 variable "ssh_public_key" {}
+variable "open_ports" {}
+variable "instance_shape" {}
+variable "instance_display_name" {}
+variable "os_name" {}
+variable "os_version" {}

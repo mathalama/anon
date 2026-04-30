@@ -22,33 +22,20 @@ data "oci_identity_availability_domains" "ads" {
 resource "oci_core_instance" "free_server" {
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   compartment_id      = var.compartment_id
-  shape               = "VM.Standard.E2.1.Micro"
-  display_name        = "mathalama-tf-server"
+  shape               = var.instance_shape
+  display_name        = var.instance_display_name
 
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 80;   max = 80   }
-  }
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 81;   max = 81   }
-  }
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 3000; max = 3000 }
-  }
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 9090; max = 9090 }
-  }
-  ingress_security_rules {
-    protocol = "6"
-    source   = "0.0.0.0/0"
-    tcp_options { min = 22;   max = 22   }
+  dynamic "ingress_security_rules" {
+    for_each = var.open_ports
+    content {
+      protocol = "6"
+      source = "0.0.0.0/0"
+
+      tcp_options {
+        min = ingress_security_rules.value
+        max = ingress_security_rules.value
+      }
+    }
   }
 
   create_vnic_details {
@@ -69,9 +56,9 @@ resource "oci_core_instance" "free_server" {
 
 data "oci_core_images" "ubuntu" {
   compartment_id           = var.compartment_id
-  operating_system         = "Canonical Ubuntu"
-  operating_system_version = "24.04"
-  shape                    = "VM.Standard.E2.1.Micro"
+  operating_system         = var.os_name
+  operating_system_version = var.os_version
+  shape                    = var.instance_shape
   sort_by                  = "TIMECREATED"
   sort_order               = "DESC"
 }

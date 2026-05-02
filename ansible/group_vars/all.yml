@@ -3,6 +3,19 @@ swap_size: 2G
 swappiness: 10
 arch: amd64
 
+# --- Deployment Configuration ---
+deploy_user: devops
+project_root: /home/devops/deploy
+
+# --- Ports for Firewall ---
+allowed_ports:
+  - 22    # SSH
+  - 80    # HTTP
+  - 443   # HTTPS
+  - 81    # NPM Admin
+  - 3000  # Grafana
+  - 9090  # Prometheus
+
 # --- Infrastructure Ports ---
 postgres_port: 5432
 redis_port: 6379

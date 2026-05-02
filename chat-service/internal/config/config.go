@@ -21,15 +21,15 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		AppEnv:               getEnv("APP_ENV", "development"),
-		LogLevel:             getEnv("LOG_LEVEL", "debug"),
-		Port:                 getEnv("PORT", "8083"),
-		DBURL:                getEnv("DB_URL", "postgres://user:pass@localhost:5432/chat_db?sslmode=disable"),
-		RepoDriver:           getEnv("REPO_DRIVER", "memory"), // memory|postgres
-		RedisURL:             getEnv("REDIS_URL", "redis:6379"),
-		WSMaxConn:            getIntEnv("WS_MAX_CONN", 10000),
-		MsgRetentionDays:     getIntEnv("MSG_RETENTION_DAYS", 30),
-		ModerationServiceURL: getEnv("MODERATION_SERVICE_URL", "http://moderation-service:8084"),
-		InternalToken:        getEnv("INTERNAL_TOKEN", "dev-internal-token"),
+		LogLevel:             getEnv("LOG_LEVEL", "info"),
+		Port:                 getEnv("PORT", ""),
+		DBURL:                getEnv("DB_URL", ""),
+		RepoDriver:           getEnv("REPO_DRIVER", "postgres"), // memory|postgres
+		RedisURL:             getEnv("REDIS_URL", ""),
+		WSMaxConn:            getIntEnv("WS_MAX_CONN", 1000),
+		MsgRetentionDays:     getIntEnv("MSG_RETENTION_DAYS", 7),
+		ModerationServiceURL: getEnv("MODERATION_SERVICE_URL", ""),
+		InternalToken:        getEnv("INTERNAL_TOKEN", ""),
 	}
 }
 

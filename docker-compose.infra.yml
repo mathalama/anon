@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: nektokz-postgres
+    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_BIND_ADDRESS}:${POSTGRES_PORT}:${POSTGRES_PORT}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -20,14 +20,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: nektokz-redis
+    container_name: redis
     ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
+      - "${REDIS_BIND_ADDRESS}:${REDIS_PORT}:${REDIS_PORT}"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -36,12 +36,12 @@ services:
 
   coturn:
     image: coturn/coturn
-    container_name: nektokz-coturn
+    container_name: coturn
     ports:
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/udp"
-      - "5349:5349/tcp"
+      - "${TURN_PORT}:${TURN_PORT}/udp"
+      - "${TURN_PORT}:${TURN_PORT}/tcp"
+      - "${TURN_TLS_PORT}:${TURN_TLS_PORT}/udp"
+      - "${TURN_TLS_PORT}:${TURN_TLS_PORT}/tcp"
     environment:
       - TURN_USER=${TURN_USER}
       - TURN_PASSWORD=${TURN_PASSWORD}
@@ -50,12 +50,12 @@ services:
       - turnserver
       - --log-file=stdout
       - --external-ip=${TURN_EXTERNAL_IP}
-      - --realm=nektokz.kz
+      - --realm=${TURN_REALM}
       - --user=$${TURN_USER}:$${TURN_PASSWORD}
-      - --listening-port=3478
-      - --tls-listening-port=5349
-      - --min-port=49152
-      - --max-port=65535
+      - --listening-port=${TURN_PORT}
+      - --tls-listening-port=${TURN_TLS_PORT}
+      - --min-port=${TURN_MIN_PORT}
+      - --max-port=${TURN_MAX_PORT}
       - --verbose
     networks:
       - nektokz-network

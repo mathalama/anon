@@ -6,12 +6,12 @@ services:
     container_name: nginx-proxy-manager
     restart: always
     ports:
-      - '80:80'
-      - '81:81'
-      - '443:443'
+      - '${NPM_PUBLIC_BIND_ADDRESS:-0.0.0.0}:80:80'
+      - '${NPM_ADMIN_BIND_ADDRESS:-0.0.0.0}:81:81'
+      - '${NPM_PUBLIC_BIND_ADDRESS:-0.0.0.0}:443:443'
     volumes:
-      - ../npm/data:/data
-      - ../npm/letsencrypt:/etc/letsencrypt
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
     networks:
       - nektokz-network
 
@@ -33,11 +33,12 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - '3000:3000'
+      - '${GRAFANA_BIND_ADDRESS:-127.0.0.1}:3000:3000'
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - nektokz-network
 

@@ -2,24 +2,29 @@ package middleware
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var publicPaths = []string{
+	"/api/v1/users/anonymous",
+	"/api/v1/users/register",
+	"/api/v1/users/login",
+	"/api/v1/users/refresh",
+}
+
 func Auth(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			
+
 			// ALWAYS remove X-User-ID from incoming request to prevent spoofing
 			r.Header.Del("X-User-ID")
 
-			// Skip for health checks and docs
-			if strings.HasSuffix(path, "/health") || strings.Contains(path, "/docs") {
+			if r.Method == http.MethodOptions || isPublicPath(path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -36,30 +41,15 @@ func Auth(secret string) func(http.Handler) http.Handler {
 				tokenString = r.URL.Query().Get("token")
 			}
 
-			userID := ""
-
-			if tokenString != "" && tokenString != "undefined" && tokenString != "null" {
-				token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-					return []byte(secret), nil
-				})
-
-				if err == nil && token.Valid {
-					if claims, ok := token.Claims.(jwt.MapClaims); ok {
-						if sub, ok := claims["sub"].(string); ok {
-							userID = sub
-						}
-					}
-				}
+			if tokenString == "" || tokenString == "undefined" || tokenString == "null" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
 			}
 
-			// If no valid userID from token, generate a UUID
-			if userID == "" {
-				// Generate a valid RFC4122 v4 UUID using crypto/rand
-				b := make([]byte, 16)
-				rand.Read(b)
-				b[6] = (b[6] & 0x0f) | 0x40 // Version 4
-				b[8] = (b[8] & 0x3f) | 0x80 // Variant 10
-				userID = fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+			userID, err := validateToken(tokenString, secret)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
 			}
 
 			r.Header.Set("X-User-ID", userID)
@@ -67,4 +57,35 @@ func Auth(secret string) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func isPublicPath(path string) bool {
+	return strings.HasSuffix(path, "/health") ||
+		strings.Contains(path, "/docs") ||
+		slices.Contains(publicPaths, path)
+}
+
+func validateToken(tokenString, secret string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+	if err != nil || !token.Valid {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", jwt.ErrTokenInvalidClaims
+	}
+
+	sub, ok := claims["sub"].(string)
+	if !ok || sub == "" {
+		return "", jwt.ErrTokenInvalidClaims
+	}
+
+	if typ, _ := claims["typ"].(string); typ != "" && typ != "access" {
+		return "", jwt.ErrTokenInvalidClaims
+	}
+
+	return sub, nil
 }

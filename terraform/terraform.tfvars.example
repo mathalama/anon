@@ -1,13 +1,27 @@
-tenancy_ocid          = ""
-user_ocid             = ""
-fingerprint           = ""
-region                = ""
-compartment_id        = ""
-subnet_id             = ""
-private_key_path      = ""
-ssh_public_key        = ""
-open_ports            = []
-instance_shape        = ""
-instance_display_name = ""
-os_name               = ""
-os_version            = ""
+# OCI Credentials
+tenancy_ocid     = ""
+user_ocid        = ""
+fingerprint      = ""
+region           = ""
+compartment_id   = ""
+subnet_id        = ""
+private_key_path = ""
+ssh_public_key   = ""
+
+# Instance Configuration
+instance_shape        = "VM.Standard.E2.1.Micro"
+instance_display_name = "nektokz-server"
+os_name               = "Canonical Ubuntu"
+os_version            = "24.04"
+
+# Networking
+open_ports       = [22, 80, 443]
+ingress_protocol = "6"
+# Restrict this CIDR to your office/home/VPN range whenever possible.
+ingress_source   = "203.0.113.10/32"
+assign_public_ip = true
+
+# Image Selection
+image_source_type = "image"
+image_sort_by     = "TIMECREATED"
+image_sort_order  = "DESC"

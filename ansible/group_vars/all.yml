@@ -1,0 +1,43 @@
+# --- System Configuration ---
+swap_size: 2G
+swappiness: 10
+arch: amd64
+
+# --- Infrastructure Ports ---
+postgres_port: 5432
+redis_port: 6379
+
+# --- Global Application Variables ---
+app_env: production
+log_level: info
+
+# --- Service Ports ---
+api_gateway_port: 8080
+user_service_port: 8081
+matchmaking_service_port: 8082
+chat_service_port: 8083
+moderation_service_port: 8084
+notification_service_port: 8085
+
+# --- Database ---
+db_user: mathalama
+
+# --- Frontend ---
+allowed_origins: "https://yourdomain.com"
+dev_allowed_origins: "http://localhost:3000,http://127.0.0.1:3000"
+next_public_api_url: "https://api.yourdomain.com/api/v1"
+next_public_ws_url: "wss://api.yourdomain.com/ws"
+
+# --- Coturn ---
+turn_user: nektokz
+turn_external_ip: 127.0.0.1
+turn_realm: nektokz.kz
+turn_port: 3478
+turn_tls_port: 5349
+
+# --- Moderation ---
+toxic_words: "сука,блять,хуй,пизда,fuck,shit,bitch"
+
+# --- Notification ---
+smtp_host: smtp.gmail.com
+smtp_port: 587

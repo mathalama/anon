@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+if (!API_BASE) {
+  console.error('NEXT_PUBLIC_API_URL is not defined in environment!');
+}
 
 export async function fetchWithAuth(path: string, options: RequestInit = {}) {
   const token = localStorage.getItem('access_token');

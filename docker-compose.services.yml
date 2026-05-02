@@ -3,18 +3,18 @@ services:
     image: ${API_GATEWAY_IMAGE:-ghcr.io/mathalama/api-gateway:latest}
     build:
       context: ./api-gateway
-    container_name: nektokz-gateway
+    container_name: api-gateway
     restart: unless-stopped
     ports:
-      - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
+      - "${API_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${API_GATEWAY_PORT:-8080}:${API_GATEWAY_PORT:-8080}"
     environment:
-      - PORT=${API_GATEWAY_PORT}
-      - REDIS_URL=nektokz-redis:6379
+      - PORT=${API_GATEWAY_PORT:-8080}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}
       - JWT_SECRET=${JWT_SECRET}
-      - USER_SERVICE_URL=http://user-service:8081
-      - MATCHMAKING_SERVICE_URL=http://matchmaking-service:8082
-      - CHAT_SERVICE_URL=http://chat-service:8083
-      - MODERATION_SERVICE_URL=http://moderation-service:8084
+      - USER_SERVICE_URL=http://user-service:${USER_SERVICE_PORT:-8081}
+      - MATCHMAKING_SERVICE_URL=http://matchmaking-service:${MATCHMAKING_SERVICE_PORT:-8082}
+      - CHAT_SERVICE_URL=http://chat-service:${CHAT_SERVICE_PORT:-8083}
+      - MODERATION_SERVICE_URL=http://moderation-service:${MODERATION_SERVICE_PORT:-8084}
     depends_on:
       user-service:
         condition: service_healthy
@@ -25,7 +25,7 @@ services:
       moderation-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:${API_GATEWAY_PORT}/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${API_GATEWAY_PORT:-8080}/api/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,16 +44,16 @@ services:
     image: ${USER_SERVICE_IMAGE:-ghcr.io/mathalama/user-service:latest}
     build:
       context: ./user-service
-    container_name: nektokz-user
+    container_name: user-service
     restart: unless-stopped
     environment:
-      - PORT=8081
-      - REPO_DRIVER=postgres
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nektokz-postgres:5432/users_db?sslmode=disable
+      - PORT=${USER_SERVICE_PORT:-8081}
+      - REPO_DRIVER=${USER_REPO_DRIVER:-postgres}
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/users_db?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8081/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${USER_SERVICE_PORT:-8081}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,17 +72,17 @@ services:
     image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
     build:
       context: ./matchmaking-service
-    container_name: nektokz-matchmaking
+    container_name: matchmaking-service
     restart: unless-stopped
     environment:
-      - PORT=8082
-      - REPO_DRIVER=redis
-      - REDIS_URL=redis://nektokz-redis:6379
-      - USER_SERVICE_URL=http://user-service:8081
-      - CHAT_SERVICE_URL=http://chat-service:8083
+      - PORT=${MATCHMAKING_SERVICE_PORT:-8082}
+      - REPO_DRIVER=${MATCHMAKING_REPO_DRIVER:-redis}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}
+      - USER_SERVICE_URL=http://user-service:${USER_SERVICE_PORT:-8081}
+      - CHAT_SERVICE_URL=http://chat-service:${CHAT_SERVICE_PORT:-8083}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8082/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${MATCHMAKING_SERVICE_PORT:-8082}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -101,17 +101,17 @@ services:
     image: ${CHAT_SERVICE_IMAGE:-ghcr.io/mathalama/chat-service:latest}
     build:
       context: ./chat-service
-    container_name: nektokz-chat
+    container_name: chat-service
     restart: unless-stopped
     environment:
-      - PORT=8083
-      - REPO_DRIVER=postgres
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nektokz-postgres:5432/chat_db?sslmode=disable
-      - MODERATION_SERVICE_URL=http://moderation-service:8084
+      - PORT=${CHAT_SERVICE_PORT:-8083}
+      - REPO_DRIVER=${CHAT_REPO_DRIVER:-postgres}
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/chat_db?sslmode=disable
+      - MODERATION_SERVICE_URL=http://moderation-service:${MODERATION_SERVICE_PORT:-8084}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
-      - REDIS_URL=nektokz-redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8083/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${CHAT_SERVICE_PORT:-8083}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -130,18 +130,18 @@ services:
     image: ${MODERATION_SERVICE_IMAGE:-ghcr.io/mathalama/moderation-service:latest}
     build:
       context: ./moderation-service
-    container_name: nektokz-moderation
+    container_name: moderation-service
     restart: unless-stopped
     environment:
-      - PORT=8084
-      - REPO_DRIVER=postgres
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@nektokz-postgres:5432/moderation_db?sslmode=disable
-      - USER_SERVICE_URL=http://user-service:8081
-      - CHAT_SERVICE_URL=http://chat-service:8083
-      - NOTIFICATION_SERVICE_URL=http://notification-service:8085
+      - PORT=${MODERATION_SERVICE_PORT:-8084}
+      - REPO_DRIVER=${MODERATION_REPO_DRIVER:-postgres}
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/moderation_db?sslmode=disable
+      - USER_SERVICE_URL=http://user-service:${USER_SERVICE_PORT:-8081}
+      - CHAT_SERVICE_URL=http://chat-service:${CHAT_SERVICE_PORT:-8083}
+      - NOTIFICATION_SERVICE_URL=http://notification-service:${NOTIFICATION_SERVICE_PORT:-8085}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8084/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${MODERATION_SERVICE_PORT:-8084}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -160,13 +160,13 @@ services:
     image: ${NOTIFICATION_SERVICE_IMAGE:-ghcr.io/mathalama/notification-service:latest}
     build:
       context: ./notification-service
-    container_name: nektokz-notification
+    container_name: notification-service
     restart: unless-stopped
     environment:
-      - PORT=8085
+      - PORT=${NOTIFICATION_SERVICE_PORT:-8085}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:8085/health || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:${NOTIFICATION_SERVICE_PORT:-8085}/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

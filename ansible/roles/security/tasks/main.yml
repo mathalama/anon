@@ -1,0 +1,64 @@
+---
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Configure UFW defaults
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: 'incoming', policy: 'deny' }
+    - { direction: 'outgoing', policy: 'allow' }
+
+- name: Allow specified ports in UFW
+  ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: tcp
+  loop: "{{ allowed_ports }}"
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+
+- name: Create deploy user
+  user:
+    name: "{{ deploy_user }}"
+    groups: docker
+    append: yes
+    shell: /bin/bash
+    create_home: yes
+
+- name: Ensure .ssh directory exists for deploy user
+  file:
+    path: "/home/{{ deploy_user }}/.ssh"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0700'
+
+- name: Copy authorized_keys to deploy user
+  copy:
+    src: "{{ ansible_env.HOME }}/.ssh/authorized_keys"
+    dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0600'
+    remote_src: yes
+
+- name: Restrict sudo access for deploy user
+  copy:
+    content: "{{ deploy_user }} ALL=(ALL) NOPASSWD: /usr/bin/docker, /usr/bin/docker-compose, /usr/bin/docker-compose-v2"
+    dest: "/etc/sudoers.d/90-{{ deploy_user }}"
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
+
+- name: Create deployment directory
+  file:
+    path: "{{ project_root }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'

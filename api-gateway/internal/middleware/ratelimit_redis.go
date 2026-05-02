@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -107,10 +106,5 @@ func parseRedisOptions(redisURL string) (*goredis.Options, error) {
 		// already host:port
 		return &goredis.Options{Addr: redisURL}, nil
 	}
-	// allow plain port (unlikely), keep it deterministic
-	if _, err := strconv.Atoi(redisURL); err == nil {
-		return &goredis.Options{Addr: "localhost:" + redisURL}, nil
-	}
 	return &goredis.Options{Addr: redisURL}, nil
 }
-

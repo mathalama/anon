@@ -1,0 +1,49 @@
+---
+- name: Professional Server Configuration and Application Deployment
+  hosts: servers
+  become: yes
+  pre_tasks:
+    - name: Load private secrets vars when present
+      include_vars: "{{ item }}"
+      with_first_found:
+        - files:
+            - group_vars/secrets.vault.yml
+            - group_vars/secrets.yml
+          paths:
+            - "{{ playbook_dir }}"
+
+    - name: Validate required deployment secrets
+      assert:
+        that:
+          - db_password is defined
+          - db_password | length > 0
+          - jwt_secret is defined
+          - jwt_secret | length > 0
+          - internal_token is defined
+          - internal_token | length > 0
+          - turn_password is defined
+          - turn_password | length > 0
+          - grafana_admin_password is defined
+          - grafana_admin_password | length > 0
+        fail_msg: "Missing required private vars. Create ansible/group_vars/secrets.yml or ansible/group_vars/secrets.vault.yml from ansible/group_vars/secrets.example.yml."
+  vars:
+    project_root: "/home/devops/deploy"
+    repo_url: "https://github.com/mathalama/anon.git"
+    app_version: "dev" # Can be branch name, tag, or commit hash
+    
+    # User configuration
+    deploy_user: "devops"
+    
+    # Ports to open
+    allowed_ports:
+      - 22
+      - 80
+      - 443
+      - 81
+      - 3000
+      - 9090
+
+  roles:
+    - { role: base, tags: ["base", "setup"] }
+    - { role: security, tags: ["security", "setup"] }
+    - { role: docker, tags: ["docker", "setup"] }

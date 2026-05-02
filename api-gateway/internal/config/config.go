@@ -16,20 +16,22 @@ type Config struct {
 	ChatServiceURL        string
 	ModerationServiceURL  string
 	AllowedOrigins        []string
+	DevAllowedOrigins     []string
 }
 
 func Load() *Config {
 	return &Config{
 		AppEnv:                getEnv("APP_ENV", "development"),
-		LogLevel:              getEnv("LOG_LEVEL", "debug"),
-		Port:                  getEnv("PORT", "8080"),
-		RedisURL:              getEnv("REDIS_URL", "localhost:6379"),
-		JWTSecret:             getEnv("JWT_SECRET", "very-secret-key"),
-		UserServiceURL:        getEnv("USER_SERVICE_URL", "http://user-service:8081"),
-		MatchmakingServiceURL: getEnv("MATCHMAKING_SERVICE_URL", "http://matchmaking-service:8082"),
-		ChatServiceURL:        getEnv("CHAT_SERVICE_URL", "http://chat-service:8083"),
-		ModerationServiceURL:  getEnv("MODERATION_SERVICE_URL", "http://moderation-service:8084"),
-		AllowedOrigins:        strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:*,http://127.0.0.1:*,http://*.mathalama.dev,https://*.mathalama.dev"), ","),
+		LogLevel:              getEnv("LOG_LEVEL", "info"),
+		Port:                  getEnv("PORT", ""),
+		RedisURL:              getEnv("REDIS_URL", ""),
+		JWTSecret:             getEnv("JWT_SECRET", ""),
+		UserServiceURL:        getEnv("USER_SERVICE_URL", ""),
+		MatchmakingServiceURL: getEnv("MATCHMAKING_SERVICE_URL", ""),
+		ChatServiceURL:        getEnv("CHAT_SERVICE_URL", ""),
+		ModerationServiceURL:  getEnv("MODERATION_SERVICE_URL", ""),
+		AllowedOrigins:        strings.Split(getEnv("ALLOWED_ORIGINS", ""), ","),
+		DevAllowedOrigins:     strings.Split(getEnv("DEV_ALLOWED_ORIGINS", ""), ","),
 	}
 }
 

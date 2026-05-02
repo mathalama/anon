@@ -4,6 +4,7 @@ services:
     build:
       context: ./api-gateway
     container_name: nektokz-gateway
+    restart: unless-stopped
     ports:
       - "${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
     environment:
@@ -44,6 +45,7 @@ services:
     build:
       context: ./user-service
     container_name: nektokz-user
+    restart: unless-stopped
     environment:
       - PORT=8081
       - REPO_DRIVER=postgres
@@ -71,6 +73,7 @@ services:
     build:
       context: ./matchmaking-service
     container_name: nektokz-matchmaking
+    restart: unless-stopped
     environment:
       - PORT=8082
       - REPO_DRIVER=redis
@@ -99,6 +102,7 @@ services:
     build:
       context: ./chat-service
     container_name: nektokz-chat
+    restart: unless-stopped
     environment:
       - PORT=8083
       - REPO_DRIVER=postgres
@@ -127,6 +131,7 @@ services:
     build:
       context: ./moderation-service
     container_name: nektokz-moderation
+    restart: unless-stopped
     environment:
       - PORT=8084
       - REPO_DRIVER=postgres
@@ -156,6 +161,7 @@ services:
     build:
       context: ./notification-service
     container_name: nektokz-notification
+    restart: unless-stopped
     environment:
       - PORT=8085
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}

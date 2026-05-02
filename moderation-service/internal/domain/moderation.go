@@ -45,4 +45,3 @@ type ModerationUsecase interface {
 	ListReports(ctx context.Context, limit int) ([]*Report, error)
 	ModerateMessage(ctx context.Context, content string) (bool, error)
 }
-

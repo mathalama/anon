@@ -14,6 +14,7 @@ var publicPaths = []string{
 	"/api/v1/users/register",
 	"/api/v1/users/login",
 	"/api/v1/users/refresh",
+	"/metrics",
 }
 
 func Auth(secret string) func(http.Handler) http.Handler {

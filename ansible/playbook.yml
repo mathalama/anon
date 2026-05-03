@@ -26,6 +26,7 @@
       tags: [always]
 
   roles:
+    - { role: config-validation, tags: ["validate", "setup", "always"] }
     - { role: base, tags: ["base", "setup"] }
     - { role: docker, tags: ["docker", "setup"] }
     - { role: security, tags: ["security", "setup"] }

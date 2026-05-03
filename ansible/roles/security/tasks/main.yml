@@ -67,12 +67,15 @@
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
     mode: '0755'
+    recurse: yes
   loop:
     - "{{ project_root }}/monitoring"
     - "{{ project_root }}/monitoring/loki"
     - "{{ project_root }}/monitoring/promtail"
     - "{{ project_root }}/monitoring/prometheus"
     - "{{ project_root }}/monitoring/grafana"
+    - "{{ project_root }}/monitoring/grafana/provisioning"
+    - "{{ project_root }}/monitoring/grafana/provisioning/datasources"
     - "{{ project_root }}/monitoring/alertmanager"
 
 - name: Create log storage directories

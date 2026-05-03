@@ -1,0 +1,98 @@
+groups:
+  - name: loki_alerts
+    rules:
+      # Database Connection Failures
+      - alert: DatabaseConnectionFailed
+        expr: |
+          count_over_time({job=~"docker"} |= "connection refused" or |= "timeout" or |= "cannot connect" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection failure detected"
+          description: "Service cannot connect to database. Check DB availability and credentials."
+
+      # Service Restart Loops
+      - alert: ServiceRestartLoop
+        expr: |
+          count_over_time({job=~"docker"} |= "container started" [5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          component: service
+        annotations:
+          summary: "Service is restarting too frequently"
+          description: "Container has restarted more than 3 times in 5 minutes."
+
+      # High Error Rates in Logs
+      - alert: HighErrorRateInLogs
+        expr: |
+          count_over_time({job=~"docker"} |= "ERROR" or |= "error" [5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "High error rate detected in logs"
+          description: "More than 100 errors logged in the last 5 minutes."
+
+      # Out of Memory Errors
+      - alert: OutOfMemoryError
+        expr: |
+          count_over_time({job=~"docker"} |= "OOMKilled" or |= "Out of memory" or |= "cannot allocate memory" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: memory
+        annotations:
+          summary: "Out of memory error detected"
+          description: "Container is running out of memory. Increase memory limits."
+
+      # Stack Traces (Panics/Crashes)
+      - alert: StackTraceDetected
+        expr: |
+          count_over_time({job=~"docker"} |= "panic" or |= "stack trace" or |= "fatal" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Application crash detected"
+          description: "Service has logged a panic or stack trace."
+
+      # Database Query Timeouts
+      - alert: DatabaseQueryTimeout
+        expr: |
+          count_over_time({job=~"docker"} |= "query timeout" or |= "context deadline" [5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database query timeouts detected"
+          description: "Multiple database queries are timing out."
+
+      # Authentication Failures
+      - alert: AuthenticationFailures
+        expr: |
+          count_over_time({job=~"docker"} |= "unauthorized" or |= "invalid token" or |= "authentication failed" [5m]) > 20
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Multiple authentication failures"
+          description: "Service is rejecting many authentication attempts."
+
+      # Service Health Check Failures
+      - alert: HealthCheckFailure
+        expr: |
+          count_over_time({job=~"docker"} |= "health check" |= "failed" [5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: service
+        annotations:
+          summary: "Health check failure detected"
+          description: "Container health check is failing."

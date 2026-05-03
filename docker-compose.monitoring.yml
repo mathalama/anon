@@ -57,6 +57,35 @@ services:
     networks:
       - nektokz-network
 
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yml
+    networks:
+      - nektokz-network
+    environment:
+      - LOKI_CONFIG=/etc/loki/local-config.yml
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - nektokz-network
+    depends_on:
+      - loki
+    environment:
+      - HOSTNAME=nektokz-server
+
 networks:
   nektokz-network:
     external: true
@@ -64,3 +93,4 @@ networks:
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:

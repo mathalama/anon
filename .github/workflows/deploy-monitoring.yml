@@ -24,7 +24,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "docker-compose.monitoring.yml,monitoring/**"
-          target: "${{ secrets.DEPLOY_PATH }}/monitoring"
+          target: "${{ secrets.DEPLOY_PATH }}/app"
 
       - name: Start Monitoring Stack
         uses: appleboy/ssh-action@master
@@ -33,5 +33,5 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}/monitoring
+            cd ${{ secrets.DEPLOY_PATH }}/app
             docker compose -f docker-compose.monitoring.yml up -d

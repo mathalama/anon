@@ -33,7 +33,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}/app
+            cd ${{ secrets.DEPLOY_PATH }}/monitoring
             
             # Stop old monitoring containers
             docker-compose -f docker-compose.monitoring.yml down
@@ -41,4 +41,4 @@ jobs:
             # Start fresh monitoring stack
             docker-compose -f docker-compose.monitoring.yml up -d
             
-            echo "✅ Monitoring stack deployed"
+            echo "Monitoring stack deployed"

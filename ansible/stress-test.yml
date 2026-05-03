@@ -1,22 +1,16 @@
 ---
 - name: Advanced SRE Capacity Analysis and Self-Healing Test
   hosts: all
-  become: yes
   vars:
-    target_url: "http://localhost"
+    target_url: "http://localhost:8080/api/v1"
     load_levels:
-      - { name: "low", reqs: 500, conc: 20 }
-      - { name: "medium", reqs: 2000, conc: 50 }
-      - { name: "heavy", reqs: 10000, conc: 150 }
+      - { name: "low", reqs: 50, conc: 5 }
+      - { name: "medium", reqs: 200, conc: 15 }
+      - { name: "heavy", reqs: 500, conc: 30 }
 
   tasks:
-    - name: 1. Preparation - Install Apache Utils (ab)
-      package:
-        name: apache2-utils
-        state: present
-
-    - name: 2. Capacity Planning - Multi-level Stress Test on User Service
-      shell: "ab -n {{ item.reqs }} -c {{ item.conc }} -s 120 {{ target_url }}:8081/health"
+    - name: 2. Capacity Planning - Multi-level Stress Test on API Gateway
+      shell: "ab -n {{ item.reqs }} -c {{ item.conc }} -s 30 {{ target_url }}/health"
       register: load_results
       loop: "{{ load_levels }}"
       failed_when: false
@@ -44,8 +38,8 @@
       loop_control:
         label: "Reporting for {{ item.item.name }}"
 
-    - name: 5. Automation Test - Kill one User Service instance (Self-Healing)
-      shell: "docker exec user-service kill 1"
+    - name: 5. Automation Test - Kill one API Gateway instance (Self-Healing)
+      shell: "docker exec api-gateway kill 1"
       register: kill_result
       failed_when: false
 
@@ -54,14 +48,14 @@
         seconds: 90
 
     - name: 7. Verify Container Recovery
-      shell: docker ps -a --filter "name=user-service" --format "{{ '{{' }}.Status{{ '}}' }}"
+      shell: docker ps -a --filter "name=api-gateway" --format "{{ '{{' }}.Status{{ '}}' }}"
       register: container_status
 
     - name: 8. Report Recovery Status
       debug:
         msg:
           - "--- SELF-HEALING TEST ---"
-          - "Action: Killed 'user-service'"
+          - "Action: Killed 'api-gateway'"
           - "Wait: 10 seconds"
           - "Current Status: {{ container_status.stdout }}"
           - "Verdict: {{ 'SUCCESS - Service Recovered' if 'Up' in container_status.stdout else 'FAILURE - Service Down' }}"

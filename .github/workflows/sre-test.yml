@@ -15,10 +15,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup SSH Key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Add known hosts
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Run Ansible SRE Playbook
@@ -28,7 +31,7 @@ jobs:
           # Generate a temporary inventory file for GitHub Actions
           cat <<EOF > inventory.ini
           [servers]
-          server1 ansible_host=${{ secrets.SSH_HOST }} ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+          server1 ansible_host=${{ secrets.SSH_HOST }} ansible_user=${{ secrets.SSH_USER }}
           EOF
           
           # Run the playbook

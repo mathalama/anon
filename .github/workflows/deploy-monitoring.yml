@@ -24,7 +24,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "docker-compose.monitoring.yml,monitoring/**"
-          target: "${{ secrets.DEPLOY_PATH }}/app"
+          target: "${{ secrets.DEPLOY_PATH }}/monitoring"
 
       - name: Start Monitoring Stack
         uses: appleboy/ssh-action@master

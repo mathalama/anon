@@ -4,9 +4,9 @@
   vars:
     target_url: "http://localhost:8080/api/v1"
     load_levels:
-      - { name: "low", reqs: 50, conc: 5 }
-      - { name: "medium", reqs: 200, conc: 15 }
-      - { name: "heavy", reqs: 500, conc: 30 }
+      - { name: "low", reqs: 500, conc: 20 }
+      - { name: "medium", reqs: 2000, conc: 50 }
+      - { name: "heavy", reqs: 10000, conc: 150 }
 
   tasks:
     - name: 2. Capacity Planning - Multi-level Stress Test on API Gateway

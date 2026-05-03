@@ -59,3 +59,30 @@
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
     mode: '0755'
+
+- name: Create monitoring directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+  loop:
+    - "{{ project_root }}/monitoring"
+    - "{{ project_root }}/monitoring/loki"
+    - "{{ project_root }}/monitoring/promtail"
+    - "{{ project_root }}/monitoring/prometheus"
+    - "{{ project_root }}/monitoring/grafana"
+    - "{{ project_root }}/monitoring/alertmanager"
+
+- name: Create log storage directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+  loop:
+    - "{{ project_root }}/logs"
+    - "{{ project_root }}/logs/loki"
+    - "{{ project_root }}/logs/prometheus"

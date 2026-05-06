@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -15,15 +19,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mathalama/nektokz/user-service/internal/config"
 	delivery "github.com/mathalama/nektokz/user-service/internal/delivery/http"
+	grpcDelivery "github.com/mathalama/nektokz/user-service/internal/delivery/grpc"
 	"github.com/mathalama/nektokz/user-service/internal/domain"
 	"github.com/mathalama/nektokz/user-service/internal/repository/postgres"
 	"github.com/mathalama/nektokz/user-service/internal/usecase"
+	pb "github.com/mathalama/nektokz/proto/user/v1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc"
 )
 
 func main() {
 	cfg := config.Load()
 	validateConfig(cfg)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	var repo domain.UserRepository = postgres.NewInMemoryUserRepository()
 	var pool *pgxpool.Pool
@@ -31,9 +41,9 @@ func main() {
 		var err error
 		// Retry connecting to DB (useful for docker-compose startup)
 		for i := 0; i < 10; i++ {
-			pool, err = pgxpool.New(context.Background(), cfg.DBURL)
+			pool, err = pgxpool.New(ctx, cfg.DBURL)
 			if err == nil {
-				err = pool.Ping(context.Background())
+				err = pool.Ping(ctx)
 				if err == nil {
 					break
 				}
@@ -66,10 +76,44 @@ func main() {
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.Handler())
 
-	log.Printf("user-service starting on port %s", cfg.Port)
-	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+	server := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
 	}
+
+	go func() {
+		log.Printf("user-service HTTP starting on port %s", cfg.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Start gRPC server
+	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	if err != nil {
+		log.Fatalf("failed to listen for gRPC: %v", err)
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterUserServiceServer(grpcServer, grpcDelivery.NewUserHandler(uc))
+
+	go func() {
+		log.Printf("user-service gRPC starting on port %s", cfg.GRPCPort)
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to start gRPC server: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("shutting down user-service...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown failed: %v", err)
+	}
+	grpcServer.GracefulStop()
+	log.Println("user-service stopped")
 }
 
 func validateConfig(cfg *config.Config) {

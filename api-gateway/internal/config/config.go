@@ -15,8 +15,11 @@ type Config struct {
 	MatchmakingServiceURL string
 	ChatServiceURL        string
 	ModerationServiceURL  string
+	UserServiceGRPCAddr   string
+	MatchmakingServiceGRPCAddr string
 	AllowedOrigins        []string
 	DevAllowedOrigins     []string
+	InternalToken         string
 }
 
 func Load() *Config {
@@ -30,8 +33,11 @@ func Load() *Config {
 		MatchmakingServiceURL: getEnv("MATCHMAKING_SERVICE_URL", ""),
 		ChatServiceURL:        getEnv("CHAT_SERVICE_URL", ""),
 		ModerationServiceURL:  getEnv("MODERATION_SERVICE_URL", ""),
+		UserServiceGRPCAddr:   getEnv("USER_SERVICE_GRPC_ADDR", "user-service:50081"),
+		MatchmakingServiceGRPCAddr: getEnv("MATCHMAKING_SERVICE_GRPC_ADDR", "matchmaking-service:50082"),
 		AllowedOrigins:        strings.Split(getEnv("ALLOWED_ORIGINS", ""), ","),
 		DevAllowedOrigins:     strings.Split(getEnv("DEV_ALLOWED_ORIGINS", ""), ","),
+		InternalToken:         getEnv("INTERNAL_TOKEN", ""),
 	}
 }
 

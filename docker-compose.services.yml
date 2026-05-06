@@ -107,7 +107,7 @@ services:
     environment:
       - PORT=${CHAT_SERVICE_PORT:-8083}
       - REPO_DRIVER=${CHAT_REPO_DRIVER:-postgres}
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/chat_db?sslmode=disable
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/chat_db?sslmode=disable&pool_max_conns=25&pool_min_conns=5&pool_max_conn_lifetime=1h&pool_max_conn_idle_time=30m
       - MODERATION_SERVICE_URL=http://moderation-service:${MODERATION_SERVICE_PORT:-8084}
       - INTERNAL_TOKEN=${INTERNAL_TOKEN}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}
@@ -136,7 +136,7 @@ services:
     environment:
       - PORT=${MODERATION_SERVICE_PORT:-8084}
       - REPO_DRIVER=${MODERATION_REPO_DRIVER:-postgres}
-      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/moderation_db?sslmode=disable
+      - DB_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT:-5432}/moderation_db?sslmode=disable&pool_max_conns=25&pool_min_conns=5&pool_max_conn_lifetime=1h&pool_max_conn_idle_time=30m
       - USER_SERVICE_URL=http://user-service:${USER_SERVICE_PORT:-8081}
       - CHAT_SERVICE_URL=http://chat-service:${CHAT_SERVICE_PORT:-8083}
       - NOTIFICATION_SERVICE_URL=http://notification-service:${NOTIFICATION_SERVICE_PORT:-8085}

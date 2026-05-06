@@ -43,6 +43,7 @@ type MatchRepository interface {
 	DeleteRoom(ctx context.Context, userID string) error
 	PublishMatch(ctx context.Context, userID string, match *MatchFound) error
 	SubscribeToMatch(ctx context.Context, userID string) (<-chan *MatchFound, func(), error)
+	PopSegment(ctx context.Context, key string, count int) ([]string, error)
 	HealthCheck(ctx context.Context) error
 }
 
@@ -52,6 +53,10 @@ type UserClient interface {
 
 type ChatClient interface {
 	CreateRoom(ctx context.Context, roomID string, userA, userB string) error
+}
+
+type MQPublisher interface {
+	Publish(ctx context.Context, subject string, data interface{}) error
 }
 
 type MatchUsecase interface {

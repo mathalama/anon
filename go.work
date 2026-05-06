@@ -1,10 +1,30 @@
 go 1.25.0
 
 use (
+	./.gomodcache/github.com/cespare/xxhash/v2@v2.3.0
+	./.gomodcache/github.com/go-chi/chi/v5@v5.2.5
+	./.gomodcache/github.com/go-chi/cors@v1.2.2
+	./.gomodcache/github.com/golang-jwt/jwt/v5@v5.3.1
+	./.gomodcache/github.com/google/uuid@v1.6.0
+	./.gomodcache/github.com/gorilla/websocket@v1.5.3
+	./.gomodcache/github.com/jackc/pgpassfile@v1.0.0
+	./.gomodcache/github.com/jackc/pgservicefile@v0.0.0-20240606120523-5a60cdf6a761
+	./.gomodcache/github.com/jackc/pgx/v5@v5.7.6
+	./.gomodcache/github.com/jackc/puddle/v2@v2.2.2
+	./.gomodcache/github.com/mattn/go-colorable@v0.1.14
+	./.gomodcache/github.com/mattn/go-isatty@v0.0.20
+	./.gomodcache/github.com/redis/go-redis/v9@v9.12.1
+	./.gomodcache/github.com/rs/zerolog@v1.35.1
+	./.gomodcache/golang.org/x/crypto@v0.50.0
+	./.gomodcache/golang.org/x/sync@v0.13.0
+	./.gomodcache/golang.org/x/sys@v0.43.0
+	./.gomodcache/golang.org/x/text@v0.36.0
 	./api-gateway
 	./chat-service
 	./matchmaking-service
 	./moderation-service
 	./notification-service
+	./pkg
+	./proto
 	./user-service
 )

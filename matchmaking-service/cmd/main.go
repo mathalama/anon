@@ -13,12 +13,17 @@ import (
 	"github.com/mathalama/nektokz/matchmaking-service/internal/client"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/config"
 	delivery "github.com/mathalama/nektokz/matchmaking-service/internal/delivery/http"
+	grpcDelivery "github.com/mathalama/nektokz/matchmaking-service/internal/delivery/grpc"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/repository/redis"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/usecase"
+	"github.com/mathalama/nektokz/pkg/mq"
+	pb "github.com/mathalama/nektokz/proto/matchmaking/v1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"net"
 )
 
 func main() {
@@ -40,9 +45,21 @@ func main() {
 		defer redisRepo.Close()
 		repo = redisRepo
 	}
-	userCli := client.NewUserClient(cfg.UserServiceURL, cfg.InternalToken)
+	userCli, err := client.NewGRPCUserClient(cfg.UserServiceGRPCURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to init gRPC user client")
+	}
 	chatCli := client.NewChatClient(cfg.ChatServiceURL, cfg.InternalToken)
-	uc := usecase.NewMatchUsecase(repo, userCli, chatCli, cfg.MatchTimeoutSec, cfg.MatchFilterDropSec)
+
+	js, err := mq.NewJetStream(cfg.NATSURL)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to init NATS JetStream, using dummy publisher")
+		// Fallback to dummy or handle error
+	} else {
+		defer js.Close()
+	}
+
+	uc := usecase.NewMatchUsecase(repo, userCli, chatCli, js, cfg.MatchTimeoutSec, cfg.MatchFilterDropSec)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -64,9 +81,24 @@ func main() {
 	}
 
 	go func() {
-		log.Info().Str("port", cfg.Port).Msg("matchmaking-service starting")
+		log.Info().Str("port", cfg.Port).Msg("matchmaking-service HTTP starting")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal().Err(err).Msg("failed to start server")
+			log.Fatal().Err(err).Msg("failed to start HTTP server")
+		}
+	}()
+
+	// Start gRPC server
+	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to listen for gRPC")
+	}
+	grpcServer := grpc.NewServer()
+	pb.RegisterMatchmakingServiceServer(grpcServer, grpcDelivery.NewMatchmakingHandler(uc))
+
+	go func() {
+		log.Info().Str("port", cfg.GRPCPort).Msg("matchmaking-service gRPC starting")
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatal().Err(err).Msg("failed to start gRPC server")
 		}
 	}()
 
@@ -77,8 +109,9 @@ func main() {
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Fatal().Err(err).Msg("server shutdown failed")
+		log.Fatal().Err(err).Msg("HTTP server shutdown failed")
 	}
+	grpcServer.GracefulStop()
 	log.Info().Msg("matchmaking-service stopped")
 }
 

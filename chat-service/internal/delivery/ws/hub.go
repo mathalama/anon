@@ -8,7 +8,20 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	goredis "github.com/redis/go-redis/v9"
+)
+
+var (
+	wsConnectionsTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "ws_connections_total",
+		Help: "Current WebSocket connections",
+	})
+	wsMessagesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "ws_messages_total",
+		Help: "Total WebSocket messages processed",
+	})
 )
 
 type Client struct {
@@ -24,21 +37,42 @@ type Client struct {
 }
 
 type Hub struct {
+	shards []*HubShard
+	rdb    *goredis.Client
+}
+
+// HubShard handles a subset of clients to reduce mutex contention
+type HubShard struct {
 	clients    map[string]*Client             // userID -> client
 	rooms      map[string]map[string]struct{} // roomID -> set(userID)
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
-	rdb        *goredis.Client
+}
+
+const numShards = 256
+
+func (h *Hub) getShard(userID string) *HubShard {
+	if len(userID) == 0 {
+		return h.shards[0]
+	}
+	// Use int to avoid byte overflow
+	return h.shards[int(userID[0])%numShards]
 }
 
 func NewHub(rdb *goredis.Client) *Hub {
+	shards := make([]*HubShard, numShards)
+	for i := 0; i < numShards; i++ {
+		shards[i] = &HubShard{
+			clients:    make(map[string]*Client),
+			rooms:      make(map[string]map[string]struct{}),
+			register:   make(chan *Client),
+			unregister: make(chan *Client),
+		}
+	}
 	return &Hub{
-		clients:    make(map[string]*Client),
-		rooms:      make(map[string]map[string]struct{}),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		rdb:        rdb,
+		shards: shards,
+		rdb:    rdb,
 	}
 }
 
@@ -46,35 +80,48 @@ func (h *Hub) Run(ctx context.Context) {
 	if h.rdb != nil {
 		go h.listenRedis(ctx)
 	}
+
+	// Start a goroutine for each shard
+	for _, shard := range h.shards {
+		go h.runShard(ctx, shard)
+	}
+
+	// Wait for context cancellation
+	<-ctx.Done()
+}
+
+func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case client := <-h.register:
-    		h.mu.Lock()
-    		h.clients[client.UserID] = client
-    		if _, ok := h.rooms[client.RoomID]; !ok {
-        		h.rooms[client.RoomID] = make(map[string]struct{})
+		case client := <-shard.register:
+			shard.mu.Lock()
+			shard.clients[client.UserID] = client
+			if _, ok := shard.rooms[client.RoomID]; !ok {
+				shard.rooms[client.RoomID] = make(map[string]struct{})
 			}
-    		h.rooms[client.RoomID][client.UserID] = struct{}{}
-    		count := len(h.rooms[client.RoomID])
-    		h.mu.Unlock()
+			shard.rooms[client.RoomID][client.UserID] = struct{}{}
+			count := len(shard.rooms[client.RoomID])
+			shard.mu.Unlock()
 
-    		if count >= 2 {
-        		// отправляем ОБОИМ — и новому и тому кто уже ждал
-        		h.BroadcastToRoom(client.RoomID, "", ServerMessage{
-            		Type:      "partner_connected",
-            		Timestamp: time.Now().Unix(),
-        		})
-    		}
+			// Increment metrics
+			wsConnectionsTotal.Inc()
 
-		case client := <-h.unregister:
+			if count >= 2 {
+				h.BroadcastToRoom(client.RoomID, "", ServerMessage{
+					Type:      "partner_connected",
+					Timestamp: time.Now().Unix(),
+				})
+			}
+
+		case client := <-shard.unregister:
 			roomID := client.RoomID
 			userID := client.UserID
 
-			h.mu.Lock()
-			if _, ok := h.clients[userID]; ok {
-				delete(h.clients, userID)
+			shard.mu.Lock()
+			if _, ok := shard.clients[userID]; ok {
+				delete(shard.clients, userID)
 				select {
 				case <-client.done:
 					// уже закрыт
@@ -83,13 +130,16 @@ func (h *Hub) Run(ctx context.Context) {
 				}
 			}
 
-			if users, ok := h.rooms[roomID]; ok {
+			if users, ok := shard.rooms[roomID]; ok {
 				delete(users, userID)
 				if len(users) == 0 {
-					delete(h.rooms, roomID)
+					delete(shard.rooms, roomID)
 				}
 			}
-			h.mu.Unlock()
+			shard.mu.Unlock()
+
+			// Decrement metrics
+			wsConnectionsTotal.Dec()
 
 			h.BroadcastToRoom(roomID, "", ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()})
 		}
@@ -117,7 +167,7 @@ func (h *Hub) personalize(msg ServerMessage, senderID, recipientID string) Serve
 	// Don't send typing or RTC signals back to the sender
 	if senderID != "" && recipientID == senderID {
 		switch msg.Type {
-		case "partner_typing", "rtc:offer", "rtc:answer", "rtc:ice-candidate":
+		case "partner_typing", "rtc:offer", "rtc:answer", "rtc:ice-candidate", "call:start", "call:end":
 			return ServerMessage{Type: ""}
 		}
 	}
@@ -157,50 +207,63 @@ func (h *Hub) listenRedis(ctx context.Context) {
 }
 
 func (h *Hub) DisconnectUser(userID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if client, ok := h.clients[userID]; ok {
+	shard := h.getShard(userID)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+	if client, ok := shard.clients[userID]; ok {
 		client.conn.Close()
-		// Hub will handle unregister via readPump failure
+		// Shard will handle unregister via readPump failure
 	}
 }
 
 func (h *Hub) DisconnectRoom(roomID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	users := h.rooms[roomID]
-	if users == nil {
-		return
-	}
-	for userID := range users {
-		if c, ok := h.clients[userID]; ok {
+	// Since we don't know the shards for all users in a room without scanning,
+	// we broadcast a disconnect message to all shards
+	for _, shard := range h.shards {
+		shard.mu.RLock()
+		users := shard.rooms[roomID]
+		clients := make([]*Client, 0, len(users))
+		for userID := range users {
+			if c, ok := shard.clients[userID]; ok {
+				clients = append(clients, c)
+			}
+		}
+		shard.mu.RUnlock()
+
+		for _, c := range clients {
 			c.conn.Close()
 		}
 	}
 }
 
 func (h *Hub) sendToRoomLocal(roomID string, build func(recipientID string) ServerMessage) {
-	h.mu.RLock()
-	users := h.rooms[roomID]
-	clients := make([]*Client, 0, len(users))
-	for userID := range users {
-		if c, ok := h.clients[userID]; ok {
-			clients = append(clients, c)
+	// Scan all shards for users in this room
+	// This is necessary because we don't centralize room membership
+	for _, shard := range h.shards {
+		shard.mu.RLock()
+		users := shard.rooms[roomID]
+		clients := make([]*Client, 0, len(users))
+		for userID := range users {
+			if c, ok := shard.clients[userID]; ok {
+				clients = append(clients, c)
+			}
 		}
-	}
-	h.mu.RUnlock()
+		shard.mu.RUnlock()
 
-	for _, c := range clients {
-		msg := build(c.UserID)
-		if msg.Type == "" {
-			continue
-		}
-		data, _ := json.Marshal(msg)
-		select {
-		case <-c.done:
-			continue
-		case c.send <- data:
-		default:
+		for _, c := range clients {
+			msg := build(c.UserID)
+			if msg.Type == "" {
+				continue
+			}
+			data, _ := json.Marshal(msg)
+			select {
+			case <-c.done:
+				continue
+			case c.send <- data:
+			default:
+				// Buffer full - client is not reading fast enough, close connection
+				go h.Unregister(c)
+			}
 		}
 	}
 }
@@ -219,5 +282,11 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID, roomID string, repo domai
 }
 
 func (h *Hub) Register(client *Client) {
-	h.register <- client
+	shard := h.getShard(client.UserID)
+	shard.register <- client
+}
+
+func (h *Hub) Unregister(client *Client) {
+	shard := h.getShard(client.UserID)
+	shard.unregister <- client
 }

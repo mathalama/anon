@@ -16,6 +16,7 @@ type Config struct {
 	MsgRetentionDays     int
 	ModerationServiceURL string
 	InternalToken        string
+	AllowedOrigins       []string
 }
 
 func Load() *Config {

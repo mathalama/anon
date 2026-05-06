@@ -46,6 +46,21 @@ func (r *InMemoryMatchRepository) GetQueue(ctx context.Context) ([]*domain.Queue
 	return r.queue, nil
 }
 
+func (r *InMemoryMatchRepository) PopSegment(ctx context.Context, key string, count int) ([]string, error) {
+	// Simple implementation for in-memory stub
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []string
+	for _, e := range r.queue {
+		// key for in-memory is not strictly used, but we could filter by it
+		out = append(out, e.UserID)
+		if len(out) >= count {
+			break
+		}
+	}
+	return out, nil
+}
+
 func (r *InMemoryMatchRepository) CreateRoom(ctx context.Context, room *domain.Room) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

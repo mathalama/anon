@@ -11,6 +11,7 @@ type Config struct {
 	InternalToken    string
 	SMTPHost         string
 	SMTPPort         string
+	NATSURL          string
 }
 
 func Load() *Config {
@@ -21,6 +22,7 @@ func Load() *Config {
 		InternalToken:    getEnv("INTERNAL_TOKEN", ""),
 		SMTPHost:         getEnv("SMTP_HOST", ""),
 		SMTPPort:         getEnv("SMTP_PORT", ""),
+		NATSURL:          getEnv("NATS_URL", "nats://nats:4222"),
 	}
 }
 

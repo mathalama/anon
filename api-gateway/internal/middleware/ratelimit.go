@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -35,9 +36,27 @@ func InMemoryRateLimiter(rps int) func(http.Handler) http.Handler {
 	var mu sync.Mutex
 	buckets := make(map[string]*bucket)
 
+	// Cleanup stale buckets every minute
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		for range ticker.C {
+			mu.Lock()
+			for ip, b := range buckets {
+				if time.Since(b.last) > 5*time.Minute {
+					delete(buckets, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := r.RemoteAddr // Simplified
+			ip := r.RemoteAddr
+			if host, _, err := net.SplitHostPort(ip); err == nil {
+				ip = host
+			}
+
 			mu.Lock()
 			b, ok := buckets[ip]
 			if !ok {

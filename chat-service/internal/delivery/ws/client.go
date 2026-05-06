@@ -21,7 +21,7 @@ const (
 
 func (c *Client) ReadPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -79,6 +79,9 @@ func (c *Client) ReadPump() {
 				continue
 			}
 
+			// Increment message counter
+			wsMessagesTotal.Inc()
+
 			ts := time.Now().Unix()
 			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{Type: "message", Content: content, Timestamp: ts})
 
@@ -90,12 +93,7 @@ func (c *Client) ReadPump() {
 			c.hub.DisconnectRoom(c.RoomID)
 
 		case "rtc:offer", "rtc:answer", "rtc:ice-candidate", "call:start", "call:end":
-			ts := time.Now().Unix()
-			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{
-				Type:      in.Type,
-				Payload:   in.Payload,
-				Timestamp: ts,
-			})
+			c.HandleSignaling(in)
 
 		default:
 			c.sendError("UNKNOWN_TYPE", "unknown message type")

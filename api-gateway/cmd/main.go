@@ -14,7 +14,10 @@ import (
 	_ "github.com/mathalama/nektokz/api-gateway/docs"
 	"github.com/mathalama/nektokz/api-gateway/internal/config"
 	gwMiddleware "github.com/mathalama/nektokz/api-gateway/internal/middleware"
+	"github.com/mathalama/nektokz/api-gateway/internal/handler"
+	"github.com/mathalama/nektokz/api-gateway/internal/client"
 	"github.com/mathalama/nektokz/api-gateway/internal/proxy"
+	"github.com/mathalama/nektokz/pkg/tracing"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -31,6 +34,14 @@ func main() {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 
+	// Initialize Tracing
+	tp, err := tracing.InitTracer(context.Background(), "api-gateway", "http://jaeger:14268/api/traces")
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to init tracer")
+	} else {
+		defer tp.Shutdown(context.Background())
+	}
+
 	r := chi.NewRouter()
 
 	// Standard middleware
@@ -38,6 +49,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(gwMiddleware.Tracing("api-gateway"))
 	r.Use(gwMiddleware.Metrics)
 
 	// Security Headers
@@ -93,6 +105,16 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// gRPC Clients for BFF
+	grpcClients, err := client.NewGRPCClients(cfg.UserServiceGRPCAddr, cfg.MatchmakingServiceGRPCAddr)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to init gRPC clients for BFF")
+	}
+
+	// BFF Routes
+	bff := handler.NewBFFHandler(cfg, grpcClients)
+	r.Get("/api/v1/bff/me", bff.GetMe)
 
 	// Swagger & Docs
 	r.Get("/api/v1/docs/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {

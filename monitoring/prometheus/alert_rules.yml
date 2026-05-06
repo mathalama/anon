@@ -32,3 +32,21 @@ groups:
         annotations:
           summary: "High HTTP error rate"
           description: "API Gateway 5xx rate is above 5% over 5 minutes."
+
+      - alert: ExcessiveWebSocketConnections
+        expr: ws_connections_total > 50000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Excessive WebSocket connections"
+          description: "WebSocket connections exceeded 50k on chat-service. Potential load issue."
+
+      - alert: HighWebSocketMessageRate
+        expr: rate(ws_messages_total[5m]) > 10000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket message rate"
+          description: "WebSocket message processing rate exceeds 10k/sec for 3 minutes."

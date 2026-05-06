@@ -15,6 +15,7 @@ type Config struct {
 	JWTRefreshTTL  time.Duration
 	InternalToken      string
 	Port               string
+	GRPCPort           string
 }
 
 func Load() *Config {
@@ -28,6 +29,7 @@ func Load() *Config {
 		JWTRefreshTTL:  getDurationEnv("JWT_REFRESH_TTL", 168*time.Hour),
 		InternalToken:    getEnv("INTERNAL_TOKEN", ""),
 		Port:             getEnv("PORT", ""),
+		GRPCPort:         getEnv("GRPC_PORT", "50081"),
 	}
 }
 

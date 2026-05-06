@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -24,6 +25,9 @@ type RedisMatchRepository struct {
 	rdb       *goredis.Client
 	filterTTL time.Duration
 	roomTTL   time.Duration
+
+	mu          sync.RWMutex
+	subscribers map[string]chan *domain.MatchFound
 }
 
 func NewRedisMatchRepository(redisURL string) (*RedisMatchRepository, error) {
@@ -32,24 +36,56 @@ func NewRedisMatchRepository(redisURL string) (*RedisMatchRepository, error) {
 		return nil, err
 	}
 	rdb := goredis.NewClient(opts)
-	return &RedisMatchRepository{
-		rdb:       rdb,
-		filterTTL: 60 * time.Second,
-		roomTTL:   30 * time.Minute,
-	}, nil
+	repo := &RedisMatchRepository{
+		rdb:         rdb,
+		filterTTL:   60 * time.Second,
+		roomTTL:     30 * time.Minute,
+		subscribers: make(map[string]chan *domain.MatchFound),
+	}
+
+	go repo.startFanOut(context.Background())
+
+	return repo, nil
+}
+
+func (r *RedisMatchRepository) startFanOut(ctx context.Context) {
+	pubsub := r.rdb.Subscribe(ctx, "match:events")
+	defer pubsub.Close()
+
+	ch := pubsub.Channel()
+	for msg := range ch {
+		var payload struct {
+			UserID string             `json:"user_id"`
+			Match  *domain.MatchFound `json:"match"`
+		}
+		if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
+			r.mu.RLock()
+			subscriber, ok := r.subscribers[payload.UserID]
+			r.mu.RUnlock()
+			if ok {
+				select {
+				case subscriber <- payload.Match:
+				default:
+				}
+			}
+		}
+	}
 }
 
 func (r *RedisMatchRepository) Close() error {
 	return r.rdb.Close()
 }
 
-func (r *RedisMatchRepository) getQueueKey(mode, gender string) string {
-	return "queue:" + mode + ":" + gender
+func (r *RedisMatchRepository) getQueueKey(mode, myGender, targetGender string) string {
+	if targetGender == "" {
+		targetGender = "any"
+	}
+	return "queue:" + mode + ":" + myGender + ":" + targetGender
 }
 
 func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.QueueEntry) error {
 	score := float64(entry.JoinedAt.Unix())
-	key := r.getQueueKey(entry.Filter.Mode, entry.Filter.MyGender)
+	key := r.getQueueKey(entry.Filter.Mode, entry.Filter.MyGender, entry.Filter.Gender)
 
 	if err := r.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: entry.UserID}).Err(); err != nil {
 		return err
@@ -71,7 +107,7 @@ func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.Que
 func (r *RedisMatchRepository) RemoveFromQueue(ctx context.Context, userID string) error {
 	filter, err := r.getFilter(ctx, userID)
 	if err == nil && filter.Mode != "" {
-		key := r.getQueueKey(filter.Mode, filter.MyGender)
+		key := r.getQueueKey(filter.Mode, filter.MyGender, filter.Gender)
 		r.rdb.ZRem(ctx, key, userID)
 	}
 	// Also try global/fallback if exists (for migration or safety)
@@ -135,6 +171,15 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 	return out, nil
 }
 
+func (r *RedisMatchRepository) PopSegment(ctx context.Context, key string, count int) ([]string, error) {
+	// Pull oldest users first (lowest score)
+	items, err := r.rdb.ZRange(ctx, key, 0, int64(count-1)).Result()
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 func (r *RedisMatchRepository) CreateRoom(ctx context.Context, room *domain.Room) error {
 	roomKey := roomKeyPref + room.ID
 	userAKey := userRoomPref + room.UserA
@@ -156,8 +201,12 @@ func (r *RedisMatchRepository) CreateRoom(ctx context.Context, room *domain.Room
 		redis.call("SET", KEYS[2], ARGV[6], "EX", ARGV[5])
 		
 		-- Remove from all possible gender buckets for this mode
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:female", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:any", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:male", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:male", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:any", ARGV[1], ARGV[2])
+		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:female", ARGV[1], ARGV[2])
 		
 		redis.call("DEL", ARGV[7] .. ARGV[1], ARGV[7] .. ARGV[2])
 		return 1
@@ -230,26 +279,28 @@ func (r *RedisMatchRepository) getFilter(ctx context.Context, userID string) (do
 }
 
 func (r *RedisMatchRepository) PublishMatch(ctx context.Context, userID string, match *domain.MatchFound) error {
-	b, _ := json.Marshal(match)
-	return r.rdb.Publish(ctx, "match:"+userID, b).Err()
+	payload := struct {
+		UserID string             `json:"user_id"`
+		Match  *domain.MatchFound `json:"match"`
+	}{
+		UserID: userID,
+		Match:  match,
+	}
+	b, _ := json.Marshal(payload)
+	return r.rdb.Publish(ctx, "match:events", b).Err()
 }
 
 func (r *RedisMatchRepository) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
-	pubsub := r.rdb.Subscribe(ctx, "match:"+userID)
-	ch := make(chan *domain.MatchFound)
-
-	go func() {
-		defer close(ch)
-		for msg := range pubsub.Channel() {
-			var m domain.MatchFound
-			if err := json.Unmarshal([]byte(msg.Payload), &m); err == nil {
-				ch <- &m
-			}
-		}
-	}()
+	ch := make(chan *domain.MatchFound, 1)
+	r.mu.Lock()
+	r.subscribers[userID] = ch
+	r.mu.Unlock()
 
 	cleanup := func() {
-		pubsub.Close()
+		r.mu.Lock()
+		delete(r.subscribers, userID)
+		r.mu.Unlock()
+		close(ch)
 	}
 
 	return ch, cleanup, nil

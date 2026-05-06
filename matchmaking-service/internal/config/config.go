@@ -15,6 +15,9 @@ type Config struct {
 	RedisURL            string
 	MatchTimeoutSec     int
 	MatchFilterDropSec  int
+	SearchRateLimitEnabled bool
+	SearchRatePerSec       float64
+	SearchRateBurst        int
 	UserServiceURL      string
 	ChatServiceURL      string
 	UserServiceGRPCURL  string
@@ -32,6 +35,9 @@ func Load() *Config {
 		RedisURL:           getEnv("REDIS_URL", ""),
 		MatchTimeoutSec:    getIntEnv("MATCH_TIMEOUT_SEC", 60),
 		MatchFilterDropSec: getIntEnv("MATCH_FILTER_DROP_SEC", 30),
+		SearchRateLimitEnabled: getBoolEnv("SEARCH_RATE_LIMIT_ENABLED", true),
+		SearchRatePerSec:       getFloatEnv("SEARCH_RATE_PER_SEC", 1.0),
+		SearchRateBurst:        getIntEnv("SEARCH_RATE_BURST", 10),
 		UserServiceURL:     getEnv("USER_SERVICE_URL", ""),
 		ChatServiceURL:     getEnv("CHAT_SERVICE_URL", ""),
 		UserServiceGRPCURL: getEnv("USER_SERVICE_GRPC_URL", "user-service:50081"),
@@ -50,6 +56,27 @@ func getIntEnv(key string, defaultValue int) int {
 	if value, exists := os.LookupEnv(key); exists {
 		if i, err := strconv.Atoi(value); err == nil {
 			return i
+		}
+	}
+	return defaultValue
+}
+
+func getFloatEnv(key string, defaultValue float64) float64 {
+	if value, exists := os.LookupEnv(key); exists {
+		if f, err := strconv.ParseFloat(value, 64); err == nil {
+			return f
+		}
+	}
+	return defaultValue
+}
+
+func getBoolEnv(key string, defaultValue bool) bool {
+	if value, exists := os.LookupEnv(key); exists {
+		switch value {
+		case "1", "true", "TRUE", "True", "yes", "YES", "Yes", "on", "ON", "On":
+			return true
+		case "0", "false", "FALSE", "False", "no", "NO", "No", "off", "OFF", "Off":
+			return false
 		}
 	}
 	return defaultValue

@@ -65,7 +65,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	delivery.NewMatchHandler(r, uc)
+	delivery.NewMatchHandler(r, uc, cfg)
 
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.Handler())

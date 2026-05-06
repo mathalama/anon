@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"github.com/mathalama/nektokz/matchmaking-service/internal/config"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
@@ -19,13 +20,19 @@ type MatchHandler struct {
 	validate *validator.Validate
 	limiters map[string]*rate.Limiter
 	mu       sync.Mutex
+	rateLimitEnabled bool
+	ratePerSec        rate.Limit
+	rateBurst         int
 }
 
-func NewMatchHandler(r chi.Router, usecase domain.MatchUsecase) {
+func NewMatchHandler(r chi.Router, usecase domain.MatchUsecase, cfg *config.Config) {
 	handler := &MatchHandler{
 		usecase:  usecase,
 		validate: validator.New(),
 		limiters: make(map[string]*rate.Limiter),
+		rateLimitEnabled: cfg.SearchRateLimitEnabled,
+		ratePerSec:        rate.Limit(cfg.SearchRatePerSec),
+		rateBurst:         cfg.SearchRateBurst,
 	}
 
 	r.Route("/match", func(r chi.Router) {
@@ -48,7 +55,7 @@ func (h *MatchHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 	// Per-user rate limit: 1 search every 5 seconds
 	if !h.allowSearch(userID) {
-		RespondWithError(w, r, http.StatusTooManyRequests, "TOO_MANY_REQUESTS", "please wait 5 seconds before searching again")
+		RespondWithError(w, r, http.StatusTooManyRequests, "TOO_MANY_REQUESTS", "please wait before searching again")
 		return
 	}
 	var req struct {
@@ -211,13 +218,17 @@ func (h *MatchHandler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MatchHandler) allowSearch(userID string) bool {
+	if !h.rateLimitEnabled {
+		return true
+	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	limiter, ok := h.limiters[userID]
 	if !ok {
-		// Relaxed: 2 requests every 5 seconds (burst of 3)
-		limiter = rate.NewLimiter(rate.Every(5*time.Second/2), 3)
+		// Configurable per-user rate limiter
+		limiter = rate.NewLimiter(h.ratePerSec, h.rateBurst)
 		h.limiters[userID] = limiter
 	}
 

@@ -38,6 +38,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(gwMiddleware.Metrics)
 
 	// Security Headers
 	r.Use(func(next http.Handler) http.Handler {
@@ -54,7 +55,7 @@ func main() {
 	// CORS
 	origins := cfg.AllowedOrigins
 	if cfg.AppEnv == "development" {
-		origins = append(origins, "http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001")
+		origins = append(origins, cfg.DevAllowedOrigins...)
 	}
 
 	r.Use(cors.Handler(cors.Options{

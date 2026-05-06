@@ -25,32 +25,18 @@ resource "oci_core_instance" "free_server" {
   shape               = var.instance_shape
   display_name        = var.instance_display_name
 
-  dynamic "ingress_security_rules" {
-    for_each = var.open_ports
-    content {
-      protocol = "6"
-      source = "0.0.0.0/0"
-
-      tcp_options {
-        min = ingress_security_rules.value
-        max = ingress_security_rules.value
-      }
-    }
-  }
-
   create_vnic_details {
     subnet_id        = var.subnet_id
-    assign_public_ip = true
+    assign_public_ip = var.assign_public_ip
   }
 
   source_details {
-    source_type = "image"
+    source_type = var.image_source_type
     source_id   = data.oci_core_images.ubuntu.images[0].id
   }
 
   metadata = {
     ssh_authorized_keys = var.ssh_public_key
-    user_data           = base64encode(file("${path.module}/setup.sh")) 
   }
 }
 
@@ -59,6 +45,6 @@ data "oci_core_images" "ubuntu" {
   operating_system         = var.os_name
   operating_system_version = var.os_version
   shape                    = var.instance_shape
-  sort_by                  = "TIMECREATED"
-  sort_order               = "DESC"
+  sort_by                  = var.image_sort_by
+  sort_order               = var.image_sort_order
 }

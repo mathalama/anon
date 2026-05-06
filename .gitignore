@@ -84,4 +84,28 @@ terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/terraform.tfvars
 terraform/.terraform.lock.hcl
+terraform/crash.log
 
+# --- Ansible ---
+ansible/inventory.ini
+ansible/*.retry
+ansible/**/*.retry
+ansible/ansible.log
+ansible/group_vars/secrets.yml
+ansible/group_vars/secrets.vault.yml
+ansible/.vault_pass
+ansible/vault_pass.txt
+
+# --- SSH Keys / Secrets ---
+*.pem
+*.key
+*.pub
+**/secrets.yml
+**/secrets.vault.yml
+**/.env
+**/.env.*
+/terraform/keys/
+/ansible/group_vars/all.yml.vault
+**/terraform.tfvars
+**/*.tfstate
+**/*.tfstate.*

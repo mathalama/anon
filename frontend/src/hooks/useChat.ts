@@ -7,6 +7,7 @@ export function useChat() {
   const store = useChatStore();
   // Track if we've already connected for this match session
   const connectedRoomRef = useRef<string | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startSearch = useCallback(async () => {
     try {
@@ -37,6 +38,7 @@ export function useChat() {
 
     let token = localStorage.getItem('access_token') || '';
     if (token === 'undefined' || token === 'null') token = '';
+    let isClosedByEffect = false;
 
     const sseUrl = api.getMatchSSEUrl(token);
     console.log('useChat: Initiating SSE connection to:', sseUrl);
@@ -81,12 +83,25 @@ export function useChat() {
     eventSource.onerror = (err) => {
       console.error('useChat: SSE Error details:', err);
       eventSource.close();
+      if (isClosedByEffect || store.status !== 'searching') {
+        return;
+      }
+
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      retryTimeoutRef.current = setTimeout(() => {
+        retryTimeoutRef.current = null;
+        store.setStatus('idle');
+        store.setStatus('searching');
+      }, 1000);
     };
 
     return () => {
+      isClosedByEffect = true;
       eventSource.close();
     };
-  }, [store.status]); // Only re-run when status changes
+  }, [store, store.status]); // Only re-run when status changes
 
   // Reset connectedRoomRef when going back to idle/searching
   useEffect(() => {
@@ -94,6 +109,14 @@ export function useChat() {
       connectedRoomRef.current = null;
     }
   }, [store.status]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     ...store,

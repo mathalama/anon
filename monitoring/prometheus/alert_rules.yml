@@ -1,21 +1,34 @@
 groups:
-  - name: incident_simulation_alerts
+  - name: platform_alerts
     rules:
-      - alert: ChatServiceDown
-        expr: up{instance="chat-service:8083"} == 0
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "Average host CPU usage has exceeded 80% for 5 minutes."
+
+      - alert: ServiceDown
+        expr: up{job="nektokz-services"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Incident: Chat Service is unreachable"
-          description: "The Chat Service target is down. Root cause: Likely invalid database configuration preventing service startup. [Assignment 4 Simulation]"
+          summary: "Service is down"
+          description: "One of the application services is unreachable."
 
-      - alert: ChatServiceDatabaseError
+      - alert: HighErrorRate
         expr: |
-          sum(rate(http_requests_total{instance="chat-service:8083", status=~"5.."}[1m])) > 0
-        for: 30s
+          (
+            sum(rate(http_requests_total{job="nektokz-services",instance="api-gateway:8080",status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total{job="nektokz-services",instance="api-gateway:8080"}[5m])), 1)
+          ) > 0.05
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Critical: Database Connection Failure"
-          description: "Chat Service is reporting 5xx errors. Analysis: Database connection string or hostname is invalid. [Incident Response Active]"
+          summary: "High HTTP error rate"
+          description: "API Gateway 5xx rate is above 5% over 5 minutes."

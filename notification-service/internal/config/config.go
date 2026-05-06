@@ -16,9 +16,9 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		AppEnv:           getEnv("APP_ENV", "development"),
-		LogLevel:         getEnv("LOG_LEVEL", "debug"),
-		Port:             getEnv("PORT", "8085"),
-		InternalToken:    getEnv("INTERNAL_TOKEN", "dev-internal-token"),
+		LogLevel:         getEnv("LOG_LEVEL", "info"),
+		Port:             getEnv("PORT", ""),
+		InternalToken:    getEnv("INTERNAL_TOKEN", ""),
 		SMTPHost:         getEnv("SMTP_HOST", ""),
 		SMTPPort:         getEnv("SMTP_PORT", ""),
 	}

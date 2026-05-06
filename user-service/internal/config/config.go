@@ -20,14 +20,14 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		AppEnv:         getEnv("APP_ENV", "development"),
-		LogLevel:       getEnv("LOG_LEVEL", "debug"),
-		DBURL:          getEnv("DB_URL", "postgres://user:pass@localhost:5432/users_db?sslmode=disable"),
-		RepoDriver:     getEnv("REPO_DRIVER", "memory"), // memory|postgres
-		JWTSecret:      getEnv("JWT_SECRET", "very-secret-key"),
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		DBURL:          getEnv("DB_URL", ""),
+		RepoDriver:     getEnv("REPO_DRIVER", "postgres"), // memory|postgres
+		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTAccessTTL:   getDurationEnv("JWT_ACCESS_TTL", 15*time.Minute),
 		JWTRefreshTTL:  getDurationEnv("JWT_REFRESH_TTL", 168*time.Hour),
-		InternalToken:    getEnv("INTERNAL_TOKEN", "dev-internal-token"),
-		Port:             getEnv("PORT", "8081"),
+		InternalToken:    getEnv("INTERNAL_TOKEN", ""),
+		Port:             getEnv("PORT", ""),
 	}
 }
 

@@ -20,15 +20,15 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		AppEnv:                 getEnv("APP_ENV", "development"),
-		LogLevel:               getEnv("LOG_LEVEL", "debug"),
-		Port:                   getEnv("PORT", "8084"),
-		DBURL:                  getEnv("DB_URL", "postgres://user:pass@localhost:5432/moderation_db?sslmode=disable"),
-		RepoDriver:             getEnv("REPO_DRIVER", "memory"), // memory|postgres
-		UserServiceURL:         getEnv("USER_SERVICE_URL", "http://user-service:8081"),
-		ChatServiceURL:         getEnv("CHAT_SERVICE_URL", "http://chat-service:8083"),
-		NotificationServiceURL: getEnv("NOTIFICATION_SERVICE_URL", "http://notification-service:8085"),
-		InternalToken:          getEnv("INTERNAL_TOKEN", "dev-internal-token"),
-		ToxicWords:             splitCSV(getEnv("TOXIC_WORDS", "сука,блять,хуй,пизда,fuck,shit,bitch")),
+		LogLevel:               getEnv("LOG_LEVEL", "info"),
+		Port:                   getEnv("PORT", ""),
+		DBURL:                  getEnv("DB_URL", ""),
+		RepoDriver:             getEnv("REPO_DRIVER", "postgres"), // memory|postgres
+		UserServiceURL:         getEnv("USER_SERVICE_URL", ""),
+		ChatServiceURL:         getEnv("CHAT_SERVICE_URL", ""),
+		NotificationServiceURL: getEnv("NOTIFICATION_SERVICE_URL", ""),
+		InternalToken:          getEnv("INTERNAL_TOKEN", ""),
+		ToxicWords:             splitCSV(getEnv("TOXIC_WORDS", "")),
 	}
 }
 

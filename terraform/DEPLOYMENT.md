@@ -34,8 +34,6 @@ The server is automatically provisioned using a `user_data` script (`setup.sh`) 
 Ensure the following ports are open in the Cloud Console:
 *   80: API Gateway (Public traffic)
 *   81: Nginx Proxy Manager (Admin UI)
-*   3000: Grafana Dashboards
-*   9090: Prometheus UI
 *   22: SSH Access
 
 ## 4. Application Deployment
@@ -61,9 +59,9 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 ## 5. Service Overview
 *   **API Gateway**: `http://<public_ip>:8080`
-*   **Prometheus**: `http://<public_ip>:9090`
-*   **Grafana**: `http://<public_ip>:3000`
 *   **Nginx Proxy Manager**: `http://<public_ip>:81`
+*   **Prometheus**: accessible internally or via SSH tunnel, not publicly exposed by default
+*   **Grafana**: accessible internally or via SSH tunnel, not publicly exposed by default
 
 ## 6. Database Migrations
 Migrations are handled automatically by each service upon startup. The services wait for the database to be ready and then execute SQL scripts located in their respective `/migrations` directories.
@@ -82,4 +80,4 @@ docker exec -it nektokz-postgres psql -U mathalama -d users_db
 ```
 
 ### Monitoring Targets
-Check `http://<public_ip>:9090/targets` to ensure all microservices are being successfully scraped by Prometheus.
+Check Prometheus targets from the local host, SSH tunnel, or internal network to ensure all microservices are being successfully scraped.

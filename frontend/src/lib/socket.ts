@@ -35,7 +35,10 @@ class ChatSocket {
     this.isReconnecting = false;
     this.stopHeartbeat();
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080/ws';
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      console.error('NEXT_PUBLIC_WS_URL is not defined in environment!');
+    }
     const finalUrl = `${wsUrl}?room_id=${roomId}&token=${token}`;
     console.log('Connecting to:', finalUrl);
 
@@ -144,8 +147,14 @@ class ChatSocket {
   next() {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: 'next' }));
+      setTimeout(() => {
+        if (this.ws?.readyState === WebSocket.OPEN) {
+          this.disconnect();
+        }
+      }, 150);
+    } else {
+      this.disconnect();
     }
-    this.disconnect();
     useChatStore.getState().setMode(null);
     useChatStore.getState().setRoomId(null);
     useChatStore.getState().setEndReason('next');

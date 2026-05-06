@@ -7,8 +7,6 @@
 
 NektoKZ is a high-performance, production-grade microservices platform for real-time anonymous text and voice communication. Built with **Go** (backend), **Next.js** (frontend), deployed on **Oracle Cloud Infrastructure** via **Terraform**.
 
-**Live Demo**: [nekto.mathalama.dev](https://nekto.mathalama.dev)
-
 ---
 
 ## Architecture Overview
@@ -188,8 +186,7 @@ npm run dev
 |---|---|
 | Frontend | http://localhost:3000 |
 | API Gateway | http://localhost:8080 |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3001 |
+| Nginx Proxy Manager Admin | http://localhost:81 |
 
 ---
 
@@ -197,14 +194,14 @@ npm run dev
 
 The monitoring stack uses Prometheus for metrics collection and Grafana for visualization.
 
-**Prometheus** scrapes metrics from all 6 microservices via `/metrics` endpoints on their respective ports.
+**Prometheus** scrapes metrics from all 6 microservices and the API Gateway via `/metrics` endpoints on their respective ports.
 
 **Grafana** dashboards include:
 - Service availability (up/down status per service)
 - Node Exporter: CPU, RAM, Disk, Network for the host machine
 
 To verify all services are UP:
-1. Open Prometheus at `:9090` → Status → Targets
+1. Open Prometheus through an SSH tunnel or internal access path
 2. All `nektokz-services` targets should show state `UP`
 
 ---
@@ -226,8 +223,9 @@ The server is provisioned on **Oracle Cloud Infrastructure (OCI)** using Terrafo
 | 22 | TCP | SSH management |
 | 80 | TCP | HTTP / API Gateway |
 | 443 | TCP | HTTPS |
-| 3000 | TCP | Grafana |
-| 9090 | TCP | Prometheus |
+| 81 | TCP | Nginx Proxy Manager admin |
+
+Grafana and Prometheus should stay bound to `127.0.0.1` unless you intentionally place them behind VPN, SSH tunneling, or an allowlisted reverse proxy.
 
 ### Deploy Infrastructure
 
@@ -242,6 +240,41 @@ terraform apply
 ```
 
 After apply, the public IP is printed as output: `instance_public_ip`.
+
+---
+
+## Configuration & Deployment (Ansible)
+
+Ansible is used to automate server configuration and application deployment.
+
+### 1. Prerequisites
+- Ansible installed on your local machine.
+- SSH access to the provisioned server.
+
+### 2. Configure Inventory
+Update `ansible/inventory.ini` with your server's public IP:
+```ini
+[servers]
+server1 ansible_host=YOUR_SERVER_IP ansible_user=ubuntu
+```
+
+### 3. Run Playbook
+To configure the server (Docker, Swap, Git) and deploy the application:
+```bash
+cd ansible
+ansible-playbook playbook.yml
+```
+
+**Tags:**
+- `setup`: Run only server configuration tasks.
+- `deploy`: Run only application deployment tasks.
+
+Example (only deploy):
+```bash
+ansible-playbook playbook.yml --tags deploy
+```
+
+---
 
 Refer to [DEPLOYMENT.md](/terraform/DEPLOYMENT.md) for OCI cloud deployment details.
 

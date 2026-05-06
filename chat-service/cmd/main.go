@@ -120,7 +120,13 @@ func validateConfig(cfg *config.Config) {
 }
 
 func runMigrations(dbURL string) error {
-	m, err := migrate.New("file://migrations", dbURL)
+	// Strip query parameters for migrate
+	baseAddr := dbURL
+	if idx := strings.Index(baseAddr, "?"); idx != -1 {
+		baseAddr = baseAddr[:idx]
+	}
+
+	m, err := migrate.New("file://migrations", baseAddr)
 	if err != nil {
 		return err
 	}

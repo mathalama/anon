@@ -150,7 +150,9 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 	_ = u.chatClient.CreateRoom(ctx, roomID, userA, userB)
 
 	// Publish to MQ for asynchronous processing (notifications, etc.)
-	_ = u.mq.Publish(ctx, "match.found", room)
+	if u.mq != nil {
+		_ = u.mq.Publish(ctx, "match.found", room)
+	}
 
 	log.Printf("MATCHMAKING: Match found! %s <-> %s (mode=%s)", userA, userB, mode)
 

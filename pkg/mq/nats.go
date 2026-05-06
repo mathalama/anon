@@ -3,6 +3,8 @@ package mq
 import (
 	"context"
 	"encoding/json"
+	"errors"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -25,6 +27,9 @@ func NewJetStream(url string) (*JetStream, error) {
 }
 
 func (j *JetStream) Publish(ctx context.Context, subject string, data interface{}) error {
+	if j == nil || j.js == nil {
+		return errors.New("jetstream not initialized")
+	}
 	b, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -34,6 +39,9 @@ func (j *JetStream) Publish(ctx context.Context, subject string, data interface{
 }
 
 func (j *JetStream) Subscribe(ctx context.Context, stream, subject, consumerName string, handler func([]byte) error) error {
+	if j == nil || j.js == nil {
+		return errors.New("jetstream not initialized")
+	}
 	// Ensure stream exists
 	_, _ = j.js.CreateStream(ctx, jetstream.StreamConfig{
 		Name:     stream,
@@ -55,9 +63,13 @@ func (j *JetStream) Subscribe(ctx context.Context, stream, subject, consumerName
 				return
 			}
 			if err := handler(msg.Data()); err == nil {
-				_ = msg.Ack()
+				if err := msg.Ack(); err != nil {
+					// In a real app, use a logger here
+				}
 			} else {
-				_ = msg.Nak()
+				if err := msg.Nak(); err != nil {
+					// In a real app, use a logger here
+				}
 			}
 		}
 	}()
@@ -65,5 +77,8 @@ func (j *JetStream) Subscribe(ctx context.Context, stream, subject, consumerName
 }
 
 func (j *JetStream) Close() {
+	if j == nil || j.nc == nil {
+		return
+	}
 	j.nc.Close()
 }

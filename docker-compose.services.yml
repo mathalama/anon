@@ -2,7 +2,8 @@ services:
   api-gateway:
     image: ${API_GATEWAY_IMAGE:-ghcr.io/mathalama/api-gateway:latest}
     build:
-      context: ./api-gateway
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
     restart: unless-stopped
     ports:
@@ -43,7 +44,8 @@ services:
   user-service:
     image: ${USER_SERVICE_IMAGE:-ghcr.io/mathalama/user-service:latest}
     build:
-      context: ./user-service
+      context: .
+      dockerfile: user-service/Dockerfile
     container_name: user-service
     restart: unless-stopped
     environment:
@@ -72,7 +74,8 @@ services:
   matchmaking-service:
     image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
     build:
-      context: ./matchmaking-service
+      context: .
+      dockerfile: matchmaking-service/Dockerfile
     container_name: matchmaking-service
     restart: unless-stopped
     environment:
@@ -101,7 +104,8 @@ services:
   chat-service:
     image: ${CHAT_SERVICE_IMAGE:-ghcr.io/mathalama/chat-service:latest}
     build:
-      context: ./chat-service
+      context: .
+      dockerfile: chat-service/Dockerfile
     container_name: chat-service
     restart: unless-stopped
     environment:
@@ -130,7 +134,8 @@ services:
   moderation-service:
     image: ${MODERATION_SERVICE_IMAGE:-ghcr.io/mathalama/moderation-service:latest}
     build:
-      context: ./moderation-service
+      context: .
+      dockerfile: moderation-service/Dockerfile
     container_name: moderation-service
     restart: unless-stopped
     environment:
@@ -160,7 +165,8 @@ services:
   notification-service:
     image: ${NOTIFICATION_SERVICE_IMAGE:-ghcr.io/mathalama/notification-service:latest}
     build:
-      context: ./notification-service
+      context: .
+      dockerfile: notification-service/Dockerfile
     container_name: notification-service
     restart: unless-stopped
     environment:

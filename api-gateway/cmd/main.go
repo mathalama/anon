@@ -35,7 +35,7 @@ func main() {
 	}
 
 	// Initialize Tracing
-	tp, err := tracing.InitTracer(context.Background(), "api-gateway", "http://jaeger:14268/api/traces")
+	tp, err := tracing.InitTracer(context.Background(), "api-gateway", "jaeger:4318")
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to init tracer")
 	} else {
@@ -82,8 +82,8 @@ func main() {
 	// Auth middleware (validation only)
 	r.Use(gwMiddleware.Auth(cfg.JWTSecret))
 
-	// Rate limiting (Redis): 600 req/min anon, 1000 req/min auth
-	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 600, 1000)
+	// Rate limiting (Redis): 10000 req/min for stress testing
+	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 10000, 10000)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to init redis rate limiter, falling back to in-memory")
 		r.Use(gwMiddleware.InMemoryRateLimiter(100))
@@ -94,7 +94,7 @@ func main() {
 
 	// Setup Proxy
 	p := proxy.NewProxy()
-	p.AddTarget("/api/v1/users", cfg.UserServiceURL)
+	// User service is now handled by native gRPC handlers below
 	p.AddTarget("/api/v1/match", cfg.MatchmakingServiceURL)
 	p.AddTarget("/api/v1/report", cfg.ModerationServiceURL)
 	p.AddTarget("/api/v1/chat", cfg.ChatServiceURL)
@@ -115,6 +115,17 @@ func main() {
 	// BFF Routes
 	bff := handler.NewBFFHandler(cfg, grpcClients)
 	r.Get("/api/v1/bff/me", bff.GetMe)
+
+	// Auth Routes (gRPC backed)
+	auth := handler.NewAuthHandler(cfg, grpcClients)
+	r.Post("/api/v1/users/login", auth.Login)
+	r.Post("/api/v1/users/register", auth.Register)
+
+	// User Profile Routes (gRPC backed)
+	user := handler.NewUserHandler(cfg, grpcClients)
+	r.Get("/api/v1/users/me", user.GetMe)
+	r.Put("/api/v1/users/me", user.UpdateMe)
+	r.Get("/api/v1/users/{id}", user.GetByID)
 
 	// Swagger & Docs
 	r.Get("/api/v1/docs/swagger.yaml", func(w http.ResponseWriter, r *http.Request) {

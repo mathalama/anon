@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -131,7 +132,36 @@ func validateConfig(cfg *config.Config) {
 }
 
 func runMigrations(dbURL string) error {
-	m, err := migrate.New("file://migrations", dbURL)
+	// Migrations use lib/pq driver; pgx pool params (pool_*) can break parsing.
+	// Keep only the essential query params (at least sslmode) and drop the rest.
+	baseAddr := dbURL
+	if u, err := url.Parse(dbURL); err == nil && u.Scheme != "" {
+		sslmode := u.Query().Get("sslmode")
+		u.RawQuery = ""
+		if sslmode != "" {
+			q := url.Values{}
+			q.Set("sslmode", sslmode)
+			u.RawQuery = q.Encode()
+		}
+		baseAddr = u.String()
+	} else if idx := strings.Index(baseAddr, "?"); idx != -1 {
+		// Fallback for non-URL DSNs: preserve sslmode if present, otherwise strip query.
+		noQuery := baseAddr[:idx]
+		ssl := ""
+		for _, part := range strings.Split(baseAddr[idx+1:], "&") {
+			if strings.HasPrefix(part, "sslmode=") {
+				ssl = part
+				break
+			}
+		}
+		if ssl != "" {
+			baseAddr = noQuery + "?" + ssl
+		} else {
+			baseAddr = noQuery
+		}
+	}
+
+	m, err := migrate.New("file://migrations", baseAddr)
 	if err != nil {
 		return err
 	}

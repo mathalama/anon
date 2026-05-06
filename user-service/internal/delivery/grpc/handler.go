@@ -44,3 +44,21 @@ func (h *UserHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRe
 	}
 	return &pb.UpdateProfileResponse{Success: true}, nil
 }
+
+func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.AuthResponse, error) {
+	access, refresh, err := h.uc.Login(ctx, req.Email, req.Password)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "login failed: %v", err)
+	}
+	return &pb.AuthResponse{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+func (h *UserHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.AuthResponse, error) {
+	err := h.uc.Register(ctx, req.Email, req.Password)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "registration failed: %v", err)
+	}
+	// Note: Register in usecase doesn't return tokens yet, user should login after.
+	// But let's align with proto if needed.
+	return &pb.AuthResponse{AccessToken: "", RefreshToken: ""}, nil
+}

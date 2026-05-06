@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,9 +15,6 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
-	goredis "github.com/redis/go-redis/v9"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/mathalama/nektokz/chat-service/internal/client"
 	"github.com/mathalama/nektokz/chat-service/internal/config"
 	delivery "github.com/mathalama/nektokz/chat-service/internal/delivery/http"
@@ -24,6 +22,9 @@ import (
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
 	"github.com/mathalama/nektokz/chat-service/internal/repository/postgres"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	goredis "github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -32,6 +33,7 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	cfg := config.Load()
+	validateConfig(cfg)
 
 	rdb := goredis.NewClient(&goredis.Options{
 		Addr: cfg.RedisURL,
@@ -77,7 +79,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	delivery.NewChatHandler(r, hub, repo, modCli, cfg.InternalToken)
+	delivery.NewChatHandler(r, hub, repo, modCli, cfg.InternalToken, cfg.AppEnv, cfg.AllowedOrigins)
 
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.Handler())
@@ -104,6 +106,17 @@ func main() {
 		log.Fatal().Err(err).Msg("server shutdown failed")
 	}
 	log.Info().Msg("chat-service stopped")
+}
+
+func validateConfig(cfg *config.Config) {
+	if cfg.AppEnv != "development" {
+		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
+			log.Fatal().Msg("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+		}
+		if cfg.RepoDriver == "postgres" && strings.Contains(cfg.DBURL, "user:pass@") {
+			log.Fatal().Msg("DB_URL must be set (no default credentials) when REPO_DRIVER=postgres in non-development environments")
+		}
+	}
 }
 
 func runMigrations(dbURL string) error {

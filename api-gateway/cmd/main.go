@@ -15,14 +15,15 @@ import (
 	"github.com/mathalama/nektokz/api-gateway/internal/config"
 	gwMiddleware "github.com/mathalama/nektokz/api-gateway/internal/middleware"
 	"github.com/mathalama/nektokz/api-gateway/internal/proxy"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func main() {
 	cfg := config.Load()
+	validateConfig(cfg)
 
 	// Setup logger
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
@@ -139,13 +140,19 @@ func main() {
 	}()
 
 	<-ctx.Done()
-	log.Info().Msg("shutting down api-gateway...")
-
+	stop()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Fatal().Err(err).Msg("server shutdown failed")
 	}
 	log.Info().Msg("api-gateway stopped")
+}
+
+func validateConfig(cfg *config.Config) {
+	if cfg.AppEnv != "development" {
+		if cfg.JWTSecret == "" || cfg.JWTSecret == "very-secret-key" {
+			log.Fatal().Msg("JWT_SECRET must be set to a strong random value in non-development environments")
+		}
+	}
 }

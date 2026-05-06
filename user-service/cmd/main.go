@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -22,6 +23,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	validateConfig(cfg)
 
 	var repo domain.UserRepository = postgres.NewInMemoryUserRepository()
 	var pool *pgxpool.Pool
@@ -43,12 +45,12 @@ func main() {
 			log.Fatalf("failed to init postgres pool after retries: %v", err)
 		}
 		defer pool.Close()
-		
+
 		// Run migrations
 		if err := runMigrations(cfg.DBURL); err != nil {
 			log.Printf("Migration warning: %v", err)
 		}
-		
+
 		repo = postgres.NewPGUserRepository(pool)
 	}
 
@@ -67,6 +69,20 @@ func main() {
 	log.Printf("user-service starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("failed to start server: %v", err)
+	}
+}
+
+func validateConfig(cfg *config.Config) {
+	if cfg.AppEnv != "development" {
+		if cfg.JWTSecret == "" || cfg.JWTSecret == "very-secret-key" {
+			log.Fatalf("JWT_SECRET must be set to a strong random value in non-development environments")
+		}
+		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
+			log.Fatalf("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+		}
+		if cfg.RepoDriver == "postgres" && strings.Contains(cfg.DBURL, "user:pass@") {
+			log.Fatalf("DB_URL must be set (no default credentials) when REPO_DRIVER=postgres in non-development environments")
+		}
 	}
 }
 

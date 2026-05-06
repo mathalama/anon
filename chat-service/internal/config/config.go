@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -16,6 +17,7 @@ type Config struct {
 	MsgRetentionDays     int
 	ModerationServiceURL string
 	InternalToken        string
+	AllowedOrigins       []string
 }
 
 func Load() *Config {
@@ -30,6 +32,7 @@ func Load() *Config {
 		MsgRetentionDays:     getIntEnv("MSG_RETENTION_DAYS", 30),
 		ModerationServiceURL: getEnv("MODERATION_SERVICE_URL", "http://moderation-service:8084"),
 		InternalToken:        getEnv("INTERNAL_TOKEN", "dev-internal-token"),
+		AllowedOrigins:       splitCSV(getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")),
 	}
 }
 
@@ -47,4 +50,19 @@ func getIntEnv(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

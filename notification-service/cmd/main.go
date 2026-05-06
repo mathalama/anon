@@ -15,6 +15,7 @@ import (
 
 func main() {
 	cfg := config.Load()
+	validateConfig(cfg)
 
 	uc := usecase.New(noop.New())
 
@@ -30,5 +31,13 @@ func main() {
 	log.Printf("notification-service starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
 		log.Fatalf("failed to start server: %v", err)
+	}
+}
+
+func validateConfig(cfg *config.Config) {
+	if cfg.AppEnv != "development" {
+		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
+			log.Fatalf("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+		}
 	}
 }

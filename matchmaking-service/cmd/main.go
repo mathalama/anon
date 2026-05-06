@@ -10,15 +10,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/mathalama/nektokz/matchmaking-service/internal/config"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/client"
+	"github.com/mathalama/nektokz/matchmaking-service/internal/config"
 	delivery "github.com/mathalama/nektokz/matchmaking-service/internal/delivery/http"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/repository/redis"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/usecase"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -27,6 +27,7 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	cfg := config.Load()
+	validateConfig(cfg)
 
 	var repo domain.MatchRepository = redis.NewInMemoryMatchRepository()
 	var redisRepo *redis.RedisMatchRepository
@@ -79,4 +80,12 @@ func main() {
 		log.Fatal().Err(err).Msg("server shutdown failed")
 	}
 	log.Info().Msg("matchmaking-service stopped")
+}
+
+func validateConfig(cfg *config.Config) {
+	if cfg.AppEnv != "development" {
+		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
+			log.Fatal().Msg("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+		}
+	}
 }

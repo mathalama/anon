@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -10,28 +11,31 @@ import (
 	"github.com/mathalama/nektokz/chat-service/internal/domain"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
 type ChatHandler struct {
-	hub  *ws.Hub
-	repo domain.ChatRepository
-	moderation domain.ModerationClient
-	internalToken string
+	hub            *ws.Hub
+	repo           domain.ChatRepository
+	moderation     domain.ModerationClient
+	internalToken  string
+	appEnv         string
+	allowedOrigins []string
 }
 
-func NewChatHandler(r chi.Router, hub *ws.Hub, repo domain.ChatRepository, moderation domain.ModerationClient, internalToken string) {
-	h := &ChatHandler{hub: hub, repo: repo, moderation: moderation, internalToken: internalToken}
+func NewChatHandler(r chi.Router, hub *ws.Hub, repo domain.ChatRepository, moderation domain.ModerationClient, internalToken string, appEnv string, allowedOrigins []string) {
+	h := &ChatHandler{
+		hub:            hub,
+		repo:           repo,
+		moderation:     moderation,
+		internalToken:  internalToken,
+		appEnv:         appEnv,
+		allowedOrigins: allowedOrigins,
+	}
 
 	r.Route("/chat", func(r chi.Router) {
 		r.HandleFunc("/ws", h.ServeWS)
 		r.Post("/internal/rooms", h.CreateRoom)
 		r.Post("/internal/disconnect", h.DisconnectUser)
 	})
-	
+
 	r.HandleFunc("/ws", h.ServeWS) // Fallback for direct gateway /ws mapping
 	r.Get("/health", h.Health)
 }
@@ -56,6 +60,18 @@ func (h *ChatHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	if userID != room.UserA && userID != room.UserB {
 		RespondWithError(w, r, http.StatusForbidden, "FORBIDDEN", "access denied to this room")
 		return
+	}
+
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			// Keep dev friction low, but lock down prod.
+			if strings.EqualFold(h.appEnv, "development") {
+				return true
+			}
+			return isOriginAllowed(r.Header.Get("Origin"), h.allowedOrigins)
+		},
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)

@@ -5,6 +5,7 @@ import (
 	pbMatch "github.com/mathalama/nektokz/proto/matchmaking/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"github.com/sony/gobreaker"
 	"time"
@@ -23,6 +24,11 @@ func NewGRPCClients(userAddr, matchAddr string) (*GRPCClients, error) {
 	uConn, err := grpc.Dial(userAddr, 
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             3 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, err
@@ -30,6 +36,11 @@ func NewGRPCClients(userAddr, matchAddr string) (*GRPCClients, error) {
 	mConn, err := grpc.Dial(matchAddr, 
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             3 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, err

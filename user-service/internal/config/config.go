@@ -9,6 +9,7 @@ type Config struct {
 	AppEnv         string
 	LogLevel       string
 	DBURL          string
+	RedisURL       string
 	RepoDriver     string
 	JWTSecret      string
 	JWTAccessTTL   time.Duration
@@ -23,6 +24,7 @@ func Load() *Config {
 		AppEnv:         getEnv("APP_ENV", "development"),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		DBURL:          getEnv("DB_URL", ""),
+		RedisURL:       getEnv("REDIS_URL", ""),
 		RepoDriver:     getEnv("REPO_DRIVER", "postgres"), // memory|postgres
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTAccessTTL:   getDurationEnv("JWT_ACCESS_TTL", 15*time.Minute),

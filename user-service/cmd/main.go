@@ -26,6 +26,7 @@ import (
 	"github.com/mathalama/nektokz/user-service/internal/usecase"
 	pb "github.com/mathalama/nektokz/proto/user/v1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	goredis "github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )
 
@@ -66,7 +67,21 @@ func main() {
 	}
 
 	tm := usecase.NewTokenManager(cfg.JWTSecret, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
-	uc := usecase.NewUserUsecase(repo, tm)
+	var rdb *goredis.Client
+	if cfg.RedisURL != "" {
+		if strings.HasPrefix(cfg.RedisURL, "redis://") {
+			opt, err := goredis.ParseURL(cfg.RedisURL)
+			if err != nil {
+				log.Fatalf("failed to parse redis url: %v", err)
+			}
+			rdb = goredis.NewClient(opt)
+		} else {
+			rdb = goredis.NewClient(&goredis.Options{Addr: cfg.RedisURL})
+		}
+		defer rdb.Close()
+	}
+
+	uc := usecase.NewUserUsecase(repo, tm, rdb)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

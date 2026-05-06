@@ -2,23 +2,27 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mathalama/nektokz/user-service/internal/domain"
+	goredis "github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type userUsecase struct {
 	repo         domain.UserRepository
 	tokenManager *TokenManager
+	rdb          *goredis.Client
 }
 
-func NewUserUsecase(repo domain.UserRepository, tm *TokenManager) domain.UserUsecase {
+func NewUserUsecase(repo domain.UserRepository, tm *TokenManager, rdb *goredis.Client) domain.UserUsecase {
 	return &userUsecase{
 		repo:         repo,
 		tokenManager: tm,
+		rdb:          rdb,
 	}
 }
 
@@ -43,7 +47,7 @@ func (u *userUsecase) CreateAnonymous(ctx context.Context, deviceID string) (str
 }
 
 func (u *userUsecase) Register(ctx context.Context, email, password string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	if err != nil {
 		return err
 	}
@@ -82,7 +86,32 @@ func (u *userUsecase) Refresh(ctx context.Context, refreshToken string) (string,
 }
 
 func (u *userUsecase) GetMe(ctx context.Context, userID string) (*domain.User, error) {
-	return u.repo.GetByID(ctx, userID)
+	if u.rdb != nil {
+		key := "user:" + userID
+		b, err := u.rdb.Get(ctx, key).Bytes()
+		if err == nil {
+			var user domain.User
+			if err := json.Unmarshal(b, &user); err == nil {
+				return &user, nil
+			}
+		} else if err != goredis.Nil {
+			// Cache errors should not fail the request
+		}
+	}
+
+	user, err := u.repo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.rdb != nil {
+		key := "user:" + userID
+		if b, err := json.Marshal(user); err == nil {
+			_ = u.rdb.Set(ctx, key, b, 5*time.Minute).Err()
+		}
+	}
+
+	return user, nil
 }
 
 func (u *userUsecase) UpdateMe(ctx context.Context, userID string, gender string, interests []string) error {
@@ -94,7 +123,14 @@ func (u *userUsecase) UpdateMe(ctx context.Context, userID string, gender string
 	user.Gender = gender
 	user.Interests = interests
 
-	return u.repo.Update(ctx, user)
+	if err := u.repo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	if u.rdb != nil {
+		_ = u.rdb.Del(ctx, "user:"+userID).Err()
+	}
+	return nil
 }
 
 func (u *userUsecase) GetBanStatus(ctx context.Context, userID string) (*domain.Ban, bool, error) {

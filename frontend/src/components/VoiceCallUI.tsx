@@ -21,64 +21,69 @@ export function VoiceCallUI({
   partnerGender 
 }: VoiceCallUIProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8 space-y-12">
+    <div className="flex flex-col items-center justify-center h-full p-8 space-y-16 bg-[#050505]">
       {/* Remote Audio element (hidden) */}
       <audio ref={remoteAudioRef} autoPlay />
 
-      <div className="flex flex-col items-center space-y-8">
+      <div className="flex flex-col items-center space-y-12">
         <div className="relative">
           {callState === 'connected' && (
-            <>
+            <div className="absolute inset-0 z-0">
               <div className="ripple"></div>
-              <div className="ripple"></div>
-              <div className="ripple"></div>
-            </>
+              <div className="ripple" style={{ animationDelay: '1s' }}></div>
+            </div>
           )}
           <div className={clsx(
-            "relative w-36 h-36 rounded-full bg-secondary flex items-center justify-center transition-all duration-500 glass border-2 border-primary/20",
-            callState === 'connected' && "scale-110 shadow-2xl shadow-primary/40 border-primary/50"
+            "relative w-40 h-40 bg-zinc-900 border border-white/5 rounded-[2.5rem] flex items-center justify-center transition-all z-10",
+            callState === 'connected' && "scale-105 border-blue-500/30"
           )}>
             <User className={clsx(
-              "w-20 h-20 transition-colors duration-500",
-              callState === 'connected' ? "text-primary" : "text-foreground/20"
+              "w-20 h-20 transition-colors",
+              callState === 'connected' ? "text-blue-500" : "text-zinc-700"
             )} />
           </div>
           {callState === 'connected' && (
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 border-4 border-background rounded-full z-10"></div>
+            <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 border-4 border-[#050505] rounded-full z-20"></div>
           )}
         </div>
 
-        <div className="text-center space-y-3">
-          <h2 className="text-3xl font-black tracking-tight text-foreground">
-            Stranger <span className="text-primary/70">({partnerGender || '...'})</span>
+        <div className="text-center space-y-4">
+          <h2 className="text-3xl font-bold tracking-tight text-white">
+            Собеседник <span className="text-zinc-500 text-xl font-normal ml-1">({partnerGender || '...'})</span>
           </h2>
-          <p className={clsx(
-            "text-xs font-black uppercase tracking-[0.2em]",
-            callState === 'connected' ? "text-green-500" : "text-foreground/30 animate-pulse"
-          )}>
-            {callState === 'calling' ? 'Establishing Connection...' : callState === 'connected' ? 'Voice Active' : 'Connecting...'}
-          </p>
+          <div className="flex items-center justify-center gap-2">
+            <span className={clsx(
+              "w-2 h-2 rounded-full",
+              callState === 'connected' ? "bg-emerald-500" : "bg-zinc-700 animate-pulse"
+            )} />
+            <p className={clsx(
+              "text-xs font-bold uppercase tracking-[0.2em]",
+              callState === 'connected' ? "text-emerald-500" : "text-zinc-500"
+            )}>
+              {callState === 'calling' ? 'Установка связи...' : callState === 'connected' ? 'Голос активен' : 'Подключение...'}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center space-x-8">
+      <div className="flex items-center space-x-6">
         <button
           onClick={toggleMute}
           className={clsx(
-            "p-5 rounded-full transition-all shadow-sm",
+            "p-6 rounded-2xl border transition-all",
             isMuted 
-              ? "bg-red-500 text-white" 
-              : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200"
+              ? "bg-red-500/10 border-red-500/20 text-red-500" 
+              : "bg-zinc-900 border-white/5 text-zinc-400 hover:text-white"
           )}
         >
-          {isMuted ? <MicOff className="w-7 h-7" /> : <Mic className="w-7 h-7" />}
+          {isMuted ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
         </button>
 
         <button
           onClick={endCall}
-          className="p-5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-lg active:scale-95"
+          className="p-6 bg-red-600 text-white rounded-2xl hover:brightness-110 active:scale-95 transition-all"
         >
-          <PhoneOff className="w-7 h-7" />
+          <PhoneOff className="w-8 h-8" />
         </button>
       </div>
     </div>

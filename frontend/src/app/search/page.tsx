@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/hooks/useChat';
-import { User, MessageSquare, Mic, Search as SearchIcon } from 'lucide-react';
+import { User, MessageSquare, Mic, Search as SearchIcon, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { api } from '@/lib/api';
@@ -27,22 +27,21 @@ export default function SearchPage() {
   } = useChat();
   const [isInitReady, setIsInitReady] = useState(false);
   const myGenderOptions: GenderOption[] = [
-    { id: 'male', label: 'Guy' },
-    { id: 'female', label: 'Girl' },
+    { id: 'male', label: 'Парень' },
+    { id: 'female', label: 'Девушка' },
   ];
   const lookingForOptions: LookingForOption[] = [
-    { id: 'any', label: 'Any' },
-    { id: 'male', label: 'Guy' },
-    { id: 'female', label: 'Girl' },
+    { id: 'any', label: 'Любой' },
+    { id: 'male', label: 'Парень' },
+    { id: 'female', label: 'Девушка' },
   ];
   const modeOptions: ModeOption[] = [
-    { id: 'text', label: 'Text', icon: MessageSquare },
-    { id: 'voice', label: 'Voice', icon: Mic },
+    { id: 'text', label: 'Текст', icon: MessageSquare },
+    { id: 'voice', label: 'Голос', icon: Mic },
   ];
 
   const canStart = myGender !== '' && selectedGender !== '' && selectedMode !== '';
 
-  // Reset stale chat session data, but keep selected filters/mode
   useEffect(() => {
     resetSession();
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,21 +100,24 @@ export default function SearchPage() {
 
   if (status === 'searching') {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-white dark:bg-[#1c1c1c]">
-        <div className="text-center space-y-6">
-          <div className="relative">
-            <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#050505]">
+        <div className="sleek-card max-w-sm w-full text-center space-y-10 py-12">
+          <div className="relative mx-auto w-24 h-24">
+            <div className="absolute inset-0 border-2 border-white/5 rounded-full" />
+            <div className="absolute inset-0 border-2 border-blue-500 rounded-full border-t-transparent animate-spin" />
             <SearchIcon className="absolute inset-0 m-auto text-blue-500 w-8 h-8" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Searching...</h2>
-            <p className="text-gray-500">Mode: {selectedMode} · Looking for: {selectedGender}</p>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-semibold tracking-tight">Поиск собеседника</h2>
+            <p className="text-sm text-zinc-500 uppercase tracking-widest font-medium">
+              {selectedMode} • {selectedGender}
+            </p>
           </div>
           <button
             onClick={cancelSearch}
-            className="px-8 py-2 border border-gray-300 dark:border-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="sleek-button-secondary w-full"
           >
-            Cancel
+            Отмена
           </button>
         </div>
       </main>
@@ -123,49 +125,49 @@ export default function SearchPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-white dark:bg-[#1c1c1c]">
-      <div className="max-w-md w-full space-y-8">
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#050505]">
+      <div className="max-w-md w-full space-y-12">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Search Settings</h1>
-          <p className="text-sm text-gray-500 mt-1">Fill all fields to start</p>
+          <h1 className="text-3xl font-bold tracking-tight">Настройки поиска</h1>
+          <p className="text-zinc-500 mt-2">Выберите параметры для начала чата</p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* I am */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-500 uppercase">I am</label>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Я —</label>
+            <div className="grid grid-cols-2 gap-3">
               {myGenderOptions.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setMyGender(item.id)}
                   className={clsx(
-                    "flex items-center justify-center space-x-2 p-4 rounded-xl border transition-all",
+                    "flex items-center justify-center space-x-3 py-4 rounded-xl border transition-all font-medium",
                     myGender === item.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                      : "border-gray-200 dark:border-gray-800 text-gray-500"
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-[#0f0f12] border-white/5 text-zinc-500 hover:border-white/10"
                   )}
                 >
                   <User className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Looking for */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-500 uppercase">Looking for</label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-4">
+            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Ищу —</label>
+            <div className="grid grid-cols-3 gap-3">
               {lookingForOptions.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setSelectedGender(item.id)}
                   className={clsx(
-                    "p-3 rounded-xl border text-sm font-medium transition-all",
+                    "py-3 rounded-xl border transition-all font-medium text-sm",
                     selectedGender === item.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                      : "border-gray-200 dark:border-gray-800 text-gray-500"
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-[#0f0f12] border-white/5 text-zinc-500 hover:border-white/10"
                   )}
                 >
                   {item.label}
@@ -175,39 +177,41 @@ export default function SearchPage() {
           </div>
 
           {/* Mode */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-500 uppercase">Chat Mode</label>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Формат —</label>
+            <div className="grid grid-cols-2 gap-3">
               {modeOptions.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setSelectedMode(item.id)}
                   className={clsx(
-                    "flex items-center justify-center space-x-2 p-4 rounded-xl border transition-all",
+                    "flex items-center justify-center space-x-3 py-4 rounded-xl border transition-all font-medium",
                     selectedMode === item.id
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                      : "border-gray-200 dark:border-gray-800 text-gray-500"
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-[#0f0f12] border-white/5 text-zinc-500 hover:border-white/10"
                   )}
                 >
                   <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <button
-            onClick={handleStart}
-            disabled={!canStart}
-            className={clsx(
-              "w-full py-4 rounded-xl font-bold transition-colors",
-              canStart
-                ? "bg-blue-500 hover:bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
-            )}
-          >
-            {canStart ? 'Find a Partner' : 'Select all options above'}
-          </button>
+          <div className="pt-6">
+            <button
+              onClick={handleStart}
+              disabled={!canStart}
+              className={clsx(
+                "w-full py-5 rounded-2xl font-semibold text-lg transition-all",
+                canStart
+                  ? "bg-blue-600 text-white hover:brightness-110"
+                  : "bg-zinc-900 text-zinc-700 cursor-not-allowed border border-white/5"
+              )}
+            >
+              {canStart ? 'Найти собеседника' : 'Заполни все поля'}
+            </button>
+          </div>
         </div>
       </div>
     </main>

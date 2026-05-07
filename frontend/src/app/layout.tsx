@@ -19,7 +19,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${outfit.variable} antialiased`}>
-        <div className="mesh-gradient" />
         <Providers>{children}</Providers>
       </body>
     </html>

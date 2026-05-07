@@ -94,8 +94,8 @@ func main() {
 	// Auth middleware (validation only)
 	r.Use(gwMiddleware.Auth(cfg.JWTSecret))
 
-	// Rate limiting (Redis): 10000 req/min for stress testing
-	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 10000, 10000)
+	// Rate limiting (Redis): 600 req/min anon, 1000 req/min auth
+	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 600, 1000)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to init redis rate limiter, falling back to in-memory")
 		r.Use(gwMiddleware.InMemoryRateLimiter(100))

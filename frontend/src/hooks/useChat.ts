@@ -72,6 +72,9 @@ export function useChat() {
             partnerUserId: data.partner_user_id || '',
           });
 
+          // Move to chatting state immediately for better UX
+          store.setStatus('chatting');
+
           const t = localStorage.getItem('access_token') || '';
           chatSocket.connect(data.room_id, t);
           eventSource.close();

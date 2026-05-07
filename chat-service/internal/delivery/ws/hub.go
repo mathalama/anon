@@ -102,17 +102,26 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 				shard.rooms[client.RoomID] = make(map[string]struct{})
 			}
 			shard.rooms[client.RoomID][client.UserID] = struct{}{}
-			count := len(shard.rooms[client.RoomID])
 			shard.mu.Unlock()
 
 			// Increment metrics
 			wsConnectionsTotal.Inc()
 
-			if count >= 2 {
-				h.BroadcastToRoom(client.RoomID, "", ServerMessage{
-					Type:      "partner_connected",
-					Timestamp: time.Now().Unix(),
-				})
+			// Use Redis to track global room occupancy across shards
+			if h.rdb != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				key := "room:occupancy:" + client.RoomID
+				h.rdb.SAdd(ctx, key, client.UserID)
+				h.rdb.Expire(ctx, key, 1*time.Hour)
+				count, _ := h.rdb.SCard(ctx, key).Result()
+				cancel()
+
+				if count >= 2 {
+					h.BroadcastToRoom(client.RoomID, "", ServerMessage{
+						Type:      "partner_connected",
+						Timestamp: time.Now().Unix(),
+					})
+				}
 			}
 
 		case client := <-shard.unregister:
@@ -140,6 +149,13 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 
 			// Decrement metrics
 			wsConnectionsTotal.Dec()
+
+			if h.rdb != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				key := "room:occupancy:" + roomID
+				h.rdb.SRem(ctx, key, userID)
+				cancel()
+			}
 
 			h.BroadcastToRoom(roomID, "", ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()})
 		}

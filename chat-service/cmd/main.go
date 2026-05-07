@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -120,13 +121,21 @@ func validateConfig(cfg *config.Config) {
 }
 
 func runMigrations(dbURL string) error {
-	// Strip query parameters for migrate
-	baseAddr := dbURL
-	if idx := strings.Index(baseAddr, "?"); idx != -1 {
-		baseAddr = baseAddr[:idx]
+	// golang-migrate uses database/sql + lib/pq which doesn't understand pgxpool
+	// query params (pool_*). Keep important params like sslmode, drop pool_*.
+	migrateURL := dbURL
+	if u, err := url.Parse(dbURL); err == nil && u.RawQuery != "" {
+		q := u.Query()
+		for key := range q {
+			if strings.HasPrefix(key, "pool_") {
+				q.Del(key)
+			}
+		}
+		u.RawQuery = q.Encode()
+		migrateURL = u.String()
 	}
 
-	m, err := migrate.New("file://migrations", baseAddr)
+	m, err := migrate.New("file://migrations", migrateURL)
 	if err != nil {
 		return err
 	}

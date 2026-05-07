@@ -97,6 +97,11 @@ make up-infra
 docker compose -f docker-compose.infra.yml up -d
 ```
 
+This also starts `Nginx Proxy Manager` (NPM) on:
+- `http://<server-ip>:81` (admin)
+- `http://<server-ip>:80` (HTTP proxy)
+- `https://<server-ip>:443` (HTTPS proxy)
+
 ### 3. Run Database Migrations
 
 **With Make:**
@@ -187,6 +192,27 @@ npm run dev
 | Frontend | http://localhost:3000 |
 | API Gateway | http://localhost:8080 |
 | Nginx Proxy Manager Admin | http://localhost:81 |
+
+### Domain setup with Nginx Proxy Manager
+
+1. Point DNS records:
+- `A  @` -> your server public IP
+- `A  api` -> your server public IP
+
+2. Open NPM admin (`http://<server-ip>:81`) and login.
+
+3. Create Proxy Host for frontend:
+- Domain: `your-domain.com`
+- Forward host: `host.docker.internal` (or your frontend host)
+- Forward port: `3000`
+- Enable SSL and request Let's Encrypt cert
+
+4. Create Proxy Host for API/WebSocket:
+- Domain: `api.your-domain.com`
+- Forward host: `api-gateway`
+- Forward port: `8080`
+- Enable Websockets support
+- Enable SSL and request Let's Encrypt cert
 
 ---
 

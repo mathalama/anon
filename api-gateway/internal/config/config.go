@@ -35,8 +35,8 @@ func Load() *Config {
 		ModerationServiceURL:  getEnv("MODERATION_SERVICE_URL", ""),
 		UserServiceGRPCAddr:   getEnv("USER_SERVICE_GRPC_ADDR", "user-service:50081"),
 		MatchmakingServiceGRPCAddr: getEnv("MATCHMAKING_SERVICE_GRPC_ADDR", "matchmaking-service:50082"),
-		AllowedOrigins:        strings.Split(getEnv("ALLOWED_ORIGINS", ""), ","),
-		DevAllowedOrigins:     strings.Split(getEnv("DEV_ALLOWED_ORIGINS", ""), ","),
+		AllowedOrigins:        parseCSVEnv("ALLOWED_ORIGINS"),
+		DevAllowedOrigins:     parseCSVEnv("DEV_ALLOWED_ORIGINS"),
 		InternalToken:         getEnv("INTERNAL_TOKEN", ""),
 	}
 }
@@ -46,4 +46,22 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func parseCSVEnv(key string) []string {
+	raw, exists := os.LookupEnv(key)
+	if !exists {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			continue
+		}
+		out = append(out, value)
+	}
+	return out
 }

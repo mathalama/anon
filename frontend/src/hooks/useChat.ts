@@ -69,6 +69,7 @@ export function useChat() {
             mode: data.mode || 'text',
             isInitiator: !!data.is_initiator,
             partnerGender: data.partner_gender || 'unknown',
+            partnerUserId: data.partner_user_id || '',
           });
 
           const t = localStorage.getItem('access_token') || '';

@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
+	"net/url"
 	"time"
+
 	"github.com/mathalama/nektokz/api-gateway/internal/config"
 	"github.com/mathalama/nektokz/api-gateway/internal/client"
 	pbUser "github.com/mathalama/nektokz/proto/user/v1"
@@ -23,6 +27,14 @@ func NewAuthHandler(cfg *config.Config, clients *client.GRPCClients) *AuthHandle
 type AuthRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+type AnonymousRequest struct {
+	DeviceID string `json:"device_id"`
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +98,120 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]any{"success": true})
+}
+
+func (h *AuthHandler) CreateAnonymous(w http.ResponseWriter, r *http.Request) {
+	var req AnonymousRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.DeviceID == "" {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	base, err := url.Parse(h.cfg.UserServiceURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		log.Error().Err(err).Str("user_service_url", h.cfg.UserServiceURL).Msg("invalid USER_SERVICE_URL")
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	base.Path = "/users/anonymous"
+
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, base.String(), bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		log.Error().Err(err).Msg("user-service anonymous request failed")
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Warn().Int("status", resp.StatusCode).RawJSON("body", respBody).Msg("user-service anonymous non-2xx")
+		http.Error(w, "failed to create session", http.StatusBadGateway)
+		return
+	}
+
+	var out struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(respBody, &out); err != nil || out.AccessToken == "" || out.RefreshToken == "" {
+		log.Error().Err(err).RawJSON("body", respBody).Msg("invalid user-service anonymous response")
+		http.Error(w, "failed to create session", http.StatusBadGateway)
+		return
+	}
+
+	h.setAuthCookies(w, out.AccessToken, out.RefreshToken)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":      true,
+		"access_token": out.AccessToken,
+	})
+}
+
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	base, err := url.Parse(h.cfg.UserServiceURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		log.Error().Err(err).Str("user_service_url", h.cfg.UserServiceURL).Msg("invalid USER_SERVICE_URL")
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	base.Path = "/users/refresh"
+
+	body, _ := json.Marshal(req)
+	httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, base.String(), bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		log.Error().Err(err).Msg("user-service refresh request failed")
+		http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Warn().Int("status", resp.StatusCode).RawJSON("body", respBody).Msg("user-service refresh non-2xx")
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	var out struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := json.Unmarshal(respBody, &out); err != nil || out.AccessToken == "" || out.RefreshToken == "" {
+		log.Error().Err(err).RawJSON("body", respBody).Msg("invalid user-service refresh response")
+		http.Error(w, "service unavailable", http.StatusBadGateway)
+		return
+	}
+
+	h.setAuthCookies(w, out.AccessToken, out.RefreshToken)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"success":      true,
+		"access_token": out.AccessToken,
+	})
 }
 
 func (h *AuthHandler) setAuthCookies(w http.ResponseWriter, access, refresh string) {

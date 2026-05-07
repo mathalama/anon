@@ -14,6 +14,14 @@ services:
       - ./npm/letsencrypt:/etc/letsencrypt
     networks:
       - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
   prometheus:
     image: prom/prometheus:latest
@@ -27,6 +35,14 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
     networks:
       - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 512M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
 
   grafana:
     image: grafana/grafana:latest
@@ -41,6 +57,14 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
     networks:
       - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -56,6 +80,14 @@ services:
       - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
     networks:
       - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
+        reservations:
+          cpus: '0.02'
+          memory: 32M
 
   loki:
     image: grafana/loki:latest
@@ -69,6 +101,14 @@ services:
       - nektokz-network
     environment:
       - LOKI_CONFIG=/etc/loki/local-config.yml
+    deploy:
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
   promtail:
     image: grafana/promtail:latest
@@ -85,6 +125,14 @@ services:
       - loki
     environment:
       - HOSTNAME=nektokz-server
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 128M
+        reservations:
+          cpus: '0.02'
+          memory: 64M
 
 networks:
   nektokz-network:

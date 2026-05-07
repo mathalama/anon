@@ -7,7 +7,7 @@ class ChatSocket {
   private maxReconnectAttempts = 20;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
-  private listeners: Map<string, Set<(payload: any) => void>> = new Map();
+  private listeners: Map<string, Set<(payload: unknown) => void>> = new Map();
   private lastRoomId: string | null = null;
   private lastToken: string | null = null;
   private isReconnecting = false;
@@ -160,21 +160,21 @@ class ChatSocket {
     useChatStore.getState().setEndReason('next');
   }
 
-  onMessage(type: string, callback: (payload: any) => void) {
+  onMessage(type: string, callback: (payload: unknown) => void) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
     this.listeners.get(type)!.add(callback);
   }
 
-  offMessage(type: string, callback: (payload: any) => void) {
+  offMessage(type: string, callback: (payload: unknown) => void) {
     const typeListeners = this.listeners.get(type);
     if (typeListeners) {
       typeListeners.delete(callback);
     }
   }
 
-  sendRTC(type: string, payload: any) {
+  sendRTC(type: string, payload: unknown) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type, payload }));
     }

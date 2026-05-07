@@ -9,20 +9,42 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { api } from '@/lib/api';
 import { useChatStore } from '@/store/chatStore';
 
+type MyGender = 'male' | 'female';
+type LookingFor = 'any' | 'male' | 'female';
+type ChatMode = 'text' | 'voice';
+type GenderOption = { id: MyGender; label: string };
+type LookingForOption = { id: LookingFor; label: string };
+type ModeOption = { id: ChatMode; label: string; icon: typeof MessageSquare };
+
 export default function SearchPage() {
   const router = useRouter();
-  const reset = useChatStore(s => s.reset);
+  const resetSession = useChatStore(s => s.resetSession);
   const {
     status, startSearch, cancelSearch,
     myGender, selectedGender, selectedMode,
+    autoSearchOnReturn, setAutoSearchOnReturn,
     setMyGender, setSelectedGender, setSelectedMode
   } = useChat();
+  const [isInitReady, setIsInitReady] = useState(false);
+  const myGenderOptions: GenderOption[] = [
+    { id: 'male', label: 'Guy' },
+    { id: 'female', label: 'Girl' },
+  ];
+  const lookingForOptions: LookingForOption[] = [
+    { id: 'any', label: 'Any' },
+    { id: 'male', label: 'Guy' },
+    { id: 'female', label: 'Girl' },
+  ];
+  const modeOptions: ModeOption[] = [
+    { id: 'text', label: 'Text', icon: MessageSquare },
+    { id: 'voice', label: 'Voice', icon: Mic },
+  ];
 
   const canStart = myGender !== '' && selectedGender !== '' && selectedMode !== '';
 
-  // Reset stale chat state (mode, roomId, messages, etc.) when landing on search page
+  // Reset stale chat session data, but keep selected filters/mode
   useEffect(() => {
-    reset();
+    resetSession();
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -56,19 +78,26 @@ export default function SearchPage() {
         }
       }
     };
-    init();
+    init().finally(() => setIsInitReady(true));
   }, []);
 
   useEffect(() => {
-    if (status === 'matched') {
+    if (status === 'chatting') {
       router.push('/chat');
     }
   }, [status, router]);
 
   const handleStart = () => {
     if (!canStart) return;
+    setAutoSearchOnReturn(false);
     startSearch();
   };
+
+  useEffect(() => {
+    if (!isInitReady || !autoSearchOnReturn || !canStart || status !== 'idle') return;
+    setAutoSearchOnReturn(false);
+    startSearch();
+  }, [isInitReady, autoSearchOnReturn, canStart, status, setAutoSearchOnReturn, startSearch]);
 
   if (status === 'searching') {
     return (
@@ -106,13 +135,10 @@ export default function SearchPage() {
           <div className="space-y-3">
             <label className="text-sm font-medium text-gray-500 uppercase">I am</label>
             <div className="grid grid-cols-2 gap-4">
-              {[
-                { id: 'male', label: 'Guy' },
-                { id: 'female', label: 'Girl' },
-              ].map((item) => (
+              {myGenderOptions.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setMyGender(item.id as any)}
+                  onClick={() => setMyGender(item.id)}
                   className={clsx(
                     "flex items-center justify-center space-x-2 p-4 rounded-xl border transition-all",
                     myGender === item.id
@@ -131,14 +157,10 @@ export default function SearchPage() {
           <div className="space-y-3">
             <label className="text-sm font-medium text-gray-500 uppercase">Looking for</label>
             <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: 'any', label: 'Any' },
-                { id: 'male', label: 'Guy' },
-                { id: 'female', label: 'Girl' },
-              ].map((item) => (
+              {lookingForOptions.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setSelectedGender(item.id as any)}
+                  onClick={() => setSelectedGender(item.id)}
                   className={clsx(
                     "p-3 rounded-xl border text-sm font-medium transition-all",
                     selectedGender === item.id
@@ -156,13 +178,10 @@ export default function SearchPage() {
           <div className="space-y-3">
             <label className="text-sm font-medium text-gray-500 uppercase">Chat Mode</label>
             <div className="grid grid-cols-2 gap-4">
-              {[
-                { id: 'text', label: 'Text', icon: MessageSquare },
-                { id: 'voice', label: 'Voice', icon: Mic },
-              ].map((item) => (
+              {modeOptions.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setSelectedMode(item.id as any)}
+                  onClick={() => setSelectedMode(item.id)}
                   className={clsx(
                     "flex items-center justify-center space-x-2 p-4 rounded-xl border transition-all",
                     selectedMode === item.id

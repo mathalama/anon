@@ -8,6 +8,8 @@ interface ChatStore extends ChatState {
   mode: 'text' | 'voice' | null;
   isInitiator: boolean;
   partnerGender: string;
+  partnerUserId: string;
+  autoSearchOnReturn: boolean;
   setStatus: (status: ChatStatus) => void;
   setRoomId: (roomId: string | null) => void;
   setMode: (mode: 'text' | 'voice' | null) => void;
@@ -16,6 +18,8 @@ interface ChatStore extends ChatState {
   setSelectedGender: (gender: 'any' | 'male' | 'female' | '') => void;
   setMyGender: (gender: 'male' | 'female' | '') => void;
   setPartnerGender: (gender: string) => void;
+  setPartnerUserId: (userId: string) => void;
+  setAutoSearchOnReturn: (enabled: boolean) => void;
   addMessage: (message: Message) => void;
   setPartnerTyping: (isTyping: boolean) => void;
   setEndReason: (reason: 'next' | 'disconnect' | 'ban' | null) => void;
@@ -24,7 +28,9 @@ interface ChatStore extends ChatState {
     mode: 'text' | 'voice';
     isInitiator: boolean;
     partnerGender: string;
+    partnerUserId?: string;
   }) => void;
+  resetSession: () => void;
   reset: () => void;
 }
 
@@ -40,6 +46,8 @@ export const useChatStore = create<ChatStore>((set) => ({
   mode: null,
   isInitiator: false,
   partnerGender: '',
+  partnerUserId: '',
+  autoSearchOnReturn: false,
 
   setStatus: (status) => set({ status }),
   setRoomId: (roomId) => set({ roomId }),
@@ -49,6 +57,8 @@ export const useChatStore = create<ChatStore>((set) => ({
   setSelectedGender: (gender) => set({ selectedGender: gender }),
   setMyGender: (gender) => set({ myGender: gender }),
   setPartnerGender: (gender) => set({ partnerGender: gender }),
+  setPartnerUserId: (userId) => set({ partnerUserId: userId }),
+  setAutoSearchOnReturn: (enabled) => set({ autoSearchOnReturn: enabled }),
   addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   setPartnerTyping: (isTyping) => set({ isPartnerTyping: isTyping }),
   setEndReason: (reason) => set({ endReason: reason }),
@@ -57,16 +67,32 @@ export const useChatStore = create<ChatStore>((set) => ({
     mode: data.mode,
     isInitiator: data.isInitiator,
     partnerGender: data.partnerGender,
+    partnerUserId: data.partnerUserId || '',
     messages: [],
     isPartnerTyping: false,
     endReason: null,
     status: 'matched',
   }),
+  resetSession: () => set((state) => ({
+    status: 'idle',
+    roomId: null,
+    messages: [],
+    isPartnerTyping: false,
+    endReason: null,
+    mode: null,
+    isInitiator: false,
+    partnerGender: '',
+    partnerUserId: '',
+    myGender: state.myGender,
+    selectedGender: state.selectedGender,
+    selectedMode: state.selectedMode,
+    autoSearchOnReturn: state.autoSearchOnReturn,
+  })),
   reset: () => set({ 
     status: 'idle', roomId: null, messages: [], 
     isPartnerTyping: false, endReason: null, mode: null, 
     isInitiator: false, selectedGender: '', partnerGender: '',
-    selectedMode: '', myGender: ''
+    selectedMode: '', myGender: '', partnerUserId: '', autoSearchOnReturn: false
   }),
 }));
 

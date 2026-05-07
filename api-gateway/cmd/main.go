@@ -69,6 +69,18 @@ func main() {
 	if cfg.AppEnv == "development" {
 		origins = append(origins, cfg.DevAllowedOrigins...)
 	}
+	if len(origins) == 0 {
+		if cfg.AppEnv == "development" {
+			origins = []string{
+				"http://localhost:3000",
+				"http://127.0.0.1:3000",
+				"http://localhost:5173",
+				"http://127.0.0.1:5173",
+			}
+		} else {
+			log.Fatal().Msg("ALLOWED_ORIGINS must be set (comma-separated) in non-development environments")
+		}
+	}
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   origins,
@@ -118,8 +130,10 @@ func main() {
 
 	// Auth Routes (gRPC backed)
 	auth := handler.NewAuthHandler(cfg, grpcClients)
+	r.Post("/api/v1/users/anonymous", auth.CreateAnonymous)
 	r.Post("/api/v1/users/login", auth.Login)
 	r.Post("/api/v1/users/register", auth.Register)
+	r.Post("/api/v1/users/refresh", auth.Refresh)
 
 	// User Profile Routes (gRPC backed)
 	user := handler.NewUserHandler(cfg, grpcClients)

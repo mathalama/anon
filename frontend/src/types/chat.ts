@@ -15,7 +15,7 @@ export interface ServerMessage {
   sender?: string;
   is_typing?: boolean;
   timestamp?: number;
-  payload?: any;
+  payload?: unknown;
   mode?: 'text' | 'voice';
 }
 

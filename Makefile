@@ -1,5 +1,6 @@
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation build-check logs-infra logs-services coturn-status
+.PHONY: up-build up-services-build rebuild-services
 
 SERVICE_PATTERNS=./api-gateway/... ./user-service/... ./matchmaking-service/... ./chat-service/... ./moderation-service/... ./notification-service/...
 
@@ -13,8 +14,11 @@ help:
 	@echo "  logs-services - Logs for microservices"
 	@echo "  test    - Run tests for all services"
 	@echo "  up      - Start everything"
+	@echo "  up-build - Start everything (with build)"
 	@echo "  up-infra - Start infra only"
-	@echo "  up-services - Start services only"
+	@echo "  up-services - Start services only (no build)"
+	@echo "  up-services-build - Start services only (with build)"
+	@echo "  rebuild-services - Rebuild + recreate services"
 	@echo "  down    - Stop everything"
 	@echo "  ps      - Show containers"
 	@echo "  logs    - Tail logs"
@@ -41,11 +45,20 @@ test:
 up: up-infra up-services
 	@echo "Project NektoKZ is up and running"
 
+up-build: up-infra up-services-build
+	@echo "Project NektoKZ is up and running (built)"
+
 up-infra:
 	docker compose -f docker-compose.infra.yml up -d
 
 up-services:
+	docker compose -f docker-compose.services.yml up -d
+
+up-services-build:
 	docker compose -f docker-compose.services.yml up -d --build
+
+rebuild-services:
+	docker compose -f docker-compose.services.yml up -d --build --force-recreate
 
 down:
 	docker compose -f docker-compose.services.yml down

@@ -115,7 +115,7 @@ export function useVoiceCall() {
       console.log('Sending RTC Offer');
       chatSocket.sendRTC('rtc:offer', offer);
       chatSocket.sendRTC('call:start', {});
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to start call', err);
       setCallState('error');
     }
@@ -138,8 +138,17 @@ export function useVoiceCall() {
 
   // Initiator: start call when chatting begins
   useEffect(() => {
-    if (mode !== 'voice' || status !== 'chatting') return;
+    if (mode !== 'voice' || (status !== 'matched' && status !== 'chatting')) return;
     let retryInterval: NodeJS.Timeout;
+
+    if (!localStreamRef.current) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          localStreamRef.current = stream;
+          console.log('Mic prewarmed');
+        })
+        .catch(e => console.error('Mic prewarm failed', e));
+    }
 
     if (status === 'chatting' && isInitiator && !isStartingRef.current && callState === 'idle') {
       isStartingRef.current = true;
@@ -170,13 +179,6 @@ export function useVoiceCall() {
       };
 
       startFast();
-    } else if (mode === 'voice' && status === 'chatting' && !isInitiator && !localStreamRef.current) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          localStreamRef.current = stream;
-          console.log('Receiver mic ready early');
-        })
-        .catch(e => console.error('Receiver mic failed', e));
     }
 
     return () => {
@@ -275,25 +277,31 @@ export function useVoiceCall() {
       cleanup();
     };
 
-    chatSocket.onMessage('rtc:offer', handleOffer);
-    chatSocket.onMessage('rtc:answer', handleAnswer);
-    chatSocket.onMessage('rtc:ice-candidate', handleCandidate);
-    chatSocket.onMessage('call:end', handleCallEnd);
+    const onOffer = (payload: unknown) => {
+      void handleOffer(payload as RTCSessionDescriptionInit);
+    };
+    const onAnswer = (payload: unknown) => {
+      void handleAnswer(payload as RTCSessionDescriptionInit);
+    };
+    const onCandidate = (payload: unknown) => {
+      void handleCandidate(payload as RTCIceCandidateInit);
+    };
+    const onCallEnd = () => {
+      handleCallEnd();
+    };
+
+    chatSocket.onMessage('rtc:offer', onOffer);
+    chatSocket.onMessage('rtc:answer', onAnswer);
+    chatSocket.onMessage('rtc:ice-candidate', onCandidate);
+    chatSocket.onMessage('call:end', onCallEnd);
 
     return () => {
-      chatSocket.offMessage('rtc:offer', handleOffer);
-      chatSocket.offMessage('rtc:answer', handleAnswer);
-      chatSocket.offMessage('rtc:ice-candidate', handleCandidate);
-      chatSocket.offMessage('call:end', handleCallEnd);
+      chatSocket.offMessage('rtc:offer', onOffer);
+      chatSocket.offMessage('rtc:answer', onAnswer);
+      chatSocket.offMessage('rtc:ice-candidate', onCandidate);
+      chatSocket.offMessage('call:end', onCallEnd);
     };
   }, [mode, status, createPeerConnection, cleanup, callState]);
-
-  // Handle room end
-  useEffect(() => {
-    if (status === 'ended') {
-      cleanup();
-    }
-  }, [status, cleanup]);
 
   return {
     startCall,

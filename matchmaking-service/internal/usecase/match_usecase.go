@@ -147,7 +147,11 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 		return
 	}
 
-	_ = u.chatClient.CreateRoom(ctx, roomID, userA, userB)
+	if err := u.chatClient.CreateRoom(ctx, roomID, userA, userB); err != nil {
+		log.Printf("MATCHMAKING: failed to create chat room %s: %v", roomID, err)
+		_ = u.repo.DeleteRoom(ctx, userA)
+		return
+	}
 
 	// Publish to MQ for asynchronous processing (notifications, etc.)
 	if u.mq != nil {

@@ -4,24 +4,29 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/hooks/useChat';
 import { useVoiceCall } from '@/hooks/useVoiceCall';
-import { Send, User, ChevronLeft, Flag, MoreVertical } from 'lucide-react';
+import { Send, User, ChevronLeft, Flag } from 'lucide-react';
 import { VoiceCallUI } from '@/components/VoiceCallUI';
 import { clsx } from 'clsx';
+import { api } from '@/lib/api';
 
 export default function ChatPage() {
   const router = useRouter();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const { 
-    status, 
-    mode, 
-    messages, 
-    isPartnerTyping, 
+
+  const {
+    status,
+    mode,
+    messages,
+    isPartnerTyping,
     partnerGender,
-    sendMessage, 
-    sendTyping, 
-    next 
+    partnerUserId,
+    roomId,
+    endReason,
+    setAutoSearchOnReturn,
+    sendMessage,
+    sendTyping,
+    next,
   } = useChat();
 
   const { callState, isMuted, toggleMute, endCall, remoteAudioRef } = useVoiceCall();
@@ -31,10 +36,12 @@ export default function ChatPage() {
       router.push('/');
     }
     if (status === 'ended') {
-        // показать уведомление и редиректнуть
-        router.push('/search');
+      if (endReason === 'disconnect') {
+        setAutoSearchOnReturn(true);
+      }
+      router.push('/search');
     }
-  }, [status, router]);
+  }, [status, endReason, setAutoSearchOnReturn, router]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -57,23 +64,42 @@ export default function ChatPage() {
   };
 
   const handleNext = () => {
+    setAutoSearchOnReturn(false);
     next();
     router.push('/search');
   };
 
   const handleEndCall = () => {
     endCall();
+    setAutoSearchOnReturn(false);
     next();
     router.push('/search');
   };
 
+  const handleReport = async () => {
+    if (!roomId) return;
+
+    const reason = window.prompt('Report reason (short):', 'abuse')?.trim() || 'abuse';
+    if (!partnerUserId) {
+      alert('Cannot send report: backend did not return partner_user_id for this session.');
+      return;
+    }
+
+    try {
+      await api.reportUser(roomId, partnerUserId, reason);
+      alert('Report submitted.');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Failed to submit report';
+      alert(message);
+    }
+  };
+
   return (
     <main className="flex flex-col h-screen text-foreground overflow-hidden">
-      {/* Premium Glass Header */}
       <header className="flex items-center justify-between px-6 py-4 glass z-20 relative">
         <div className="flex items-center space-x-4">
-          <button 
-            onClick={handleEndCall} 
+          <button
+            onClick={handleEndCall}
             className="p-2 hover:bg-foreground/5 rounded-xl transition-all active:scale-95"
           >
             <ChevronLeft className="w-6 h-6" />
@@ -89,31 +115,38 @@ export default function ChatPage() {
               Stranger <span className="text-primary/70 ml-1">({partnerGender || '...'})</span>
             </h2>
             <div className="flex items-center space-x-1.5">
-              <span className="text-[10px] text-green-500 uppercase font-black tracking-widest">Connected</span>
+              <span
+                className={clsx(
+                  'text-[10px] uppercase font-black tracking-widest',
+                  status === 'chatting' ? 'text-green-500' : 'text-amber-500',
+                )}
+              >
+                {status === 'chatting' ? 'Connected' : 'Waiting for partner'}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center space-x-3">
-          <button 
+          <button
             onClick={handleNext}
             className="px-6 py-2 bg-gradient-to-r from-primary to-accent text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-primary/25 hover:scale-105 active:scale-95"
           >
             Next
           </button>
-          <button className="p-2 hover:bg-red-500/10 hover:text-red-500 rounded-xl transition-colors text-foreground/40">
+          <button
+            onClick={handleReport}
+            className="p-2 hover:bg-red-500/10 hover:text-red-500 rounded-xl transition-colors text-foreground/40"
+          >
             <Flag className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* Chat Content */}
       <div className="flex-1 relative overflow-hidden flex flex-col">
-        
-        {/* Voice Call Overlay */}
         {mode === 'voice' && (
           <div className="absolute inset-0 z-10 glass flex flex-col">
-            <VoiceCallUI 
+            <VoiceCallUI
               callState={callState}
               isMuted={isMuted}
               toggleMute={toggleMute}
@@ -124,30 +157,28 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* Message Area */}
-        <div 
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth"
-        >
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
           {messages.map((msg, i) => (
-            <div 
+            <div
               key={i}
               className={clsx(
-                "flex w-full animate-in fade-in slide-in-from-bottom-2 duration-300",
-                msg.sender === 'me' ? "justify-end" : "justify-start"
+                'flex w-full animate-in fade-in slide-in-from-bottom-2 duration-300',
+                msg.sender === 'me' ? 'justify-end' : 'justify-start',
               )}
             >
-              <div 
+              <div
                 className={clsx(
-                  "chat-bubble max-w-[80%]",
-                  msg.sender === 'me' ? "chat-bubble-me" : "chat-bubble-partner"
+                  'chat-bubble max-w-[80%]',
+                  msg.sender === 'me' ? 'chat-bubble-me' : 'chat-bubble-partner',
                 )}
               >
                 <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
-                <span className={clsx(
-                  "text-[9px] font-bold uppercase tracking-tighter opacity-50 block mt-1.5",
-                  msg.sender === 'me' ? "text-right" : "text-left"
-                )}>
+                <span
+                  className={clsx(
+                    'text-[9px] font-bold uppercase tracking-tighter opacity-50 block mt-1.5',
+                    msg.sender === 'me' ? 'text-right' : 'text-left',
+                  )}
+                >
                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -167,14 +198,10 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input Area */}
-        <form 
-          onSubmit={handleSend}
-          className="p-6 glass mt-auto"
-        >
+        <form onSubmit={handleSend} className="p-6 glass mt-auto">
           <div className="flex items-center space-x-3 max-w-4xl mx-auto">
             <div className="flex-1 relative group">
-              <input 
+              <input
                 type="text"
                 value={input}
                 onChange={handleInputChange}
@@ -182,7 +209,7 @@ export default function ChatPage() {
                 className="w-full glass bg-foreground/5 border-none rounded-2xl px-5 py-4 text-sm font-medium focus:ring-2 focus:ring-primary/50 outline-none transition-all placeholder:text-foreground/30"
               />
             </div>
-            <button 
+            <button
               type="submit"
               disabled={!input.trim()}
               className="p-4 bg-gradient-to-br from-primary to-accent text-white rounded-2xl hover:scale-105 disabled:opacity-30 disabled:hover:scale-100 transition-all shadow-xl shadow-primary/20 active:scale-95"
@@ -193,6 +220,5 @@ export default function ChatPage() {
         </form>
       </div>
     </main>
-
   );
 }

@@ -9,9 +9,12 @@ services:
     ports:
       - "${API_GATEWAY_BIND_ADDRESS:-0.0.0.0}:${API_GATEWAY_PORT:-8080}:${API_GATEWAY_PORT:-8080}"
     environment:
+      - APP_ENV=${APP_ENV:-development}
       - PORT=${API_GATEWAY_PORT:-8080}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT:-6379}
       - JWT_SECRET=${JWT_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - DEV_ALLOWED_ORIGINS=${DEV_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173}
       - USER_SERVICE_URL=http://user-service:${USER_SERVICE_PORT:-8081}
       - MATCHMAKING_SERVICE_URL=http://matchmaking-service:${MATCHMAKING_SERVICE_PORT:-8082}
       - CHAT_SERVICE_URL=http://chat-service:${CHAT_SERVICE_PORT:-8083}
@@ -64,7 +67,7 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.25'
+          cpus: '0.15'
           memory: 128M
         reservations:
           cpus: '0.10'
@@ -73,7 +76,6 @@ services:
       - nektokz-network
 
   matchmaking-service:
-    image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
     build:
       context: .
       dockerfile: matchmaking-service/Dockerfile

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moderation-service
+  namespace: sumdyk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: moderation-service
+  template:
+    metadata:
+      labels:
+        app: moderation-service
+    spec:
+      containers:
+      - name: moderation-service
+        image: ghcr.io/mathalama/moderation-service:latest
+        ports:
+        - containerPort: 8084
+        envFrom:
+        - configMapRef:
+            name: sumdyk-config
+        - secretRef:
+            name: sumdyk-secrets
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 10
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moderation-service
+  namespace: sumdyk
+spec:
+  selector:
+    app: moderation-service
+  ports:
+  - port: 8084
+    targetPort: 8084

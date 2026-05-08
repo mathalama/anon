@@ -1,0 +1,68 @@
+---
+- name: Ensure deployment directory exists
+  file:
+    path: "{{ project_root }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+
+- name: Clone or update repository
+  git:
+    repo: "{{ repo_url }}"
+    dest: "{{ project_root }}/app"
+    version: "{{ app_version }}"
+    force: yes
+  become_user: "{{ deploy_user }}"
+  register: repo_clone
+
+- name: Generate .env from template
+  template:
+    src: .env.j2
+    dest: "{{ project_root }}/app/.env"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0600'
+
+- name: Start Infrastructure Layer
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_root }}/app"
+    files:
+      - docker-compose.infra.yml
+    state: present
+
+- name: Wait for PostgreSQL to be ready
+  wait_for:
+    host: localhost
+    port: "{{ postgres_port }}"
+    timeout: 60
+
+- name: Wait for Redis to be ready
+  wait_for:
+    host: localhost
+    port: "{{ redis_port }}"
+    timeout: 30
+
+- name: Start Application Services Layer
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_root }}/app"
+    files:
+      - docker-compose.services.yml
+    state: present
+    build: always
+
+- name: Start Monitoring Layer
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_root }}/app"
+    files:
+      - docker-compose.monitoring.yml
+    state: present
+
+- name: Verify Health Checks
+  uri:
+    url: "http://localhost:{{ api_gateway_port | default(8080) }}/api/v1/health"
+    status_code: 200
+  register: health_check
+  until: health_check.status == 200
+  retries: 10
+  delay: 5

@@ -1,0 +1,40 @@
+---
+- name: Check if K3s is already installed
+  stat:
+    path: /usr/local/bin/k3s
+  register: k3s_stat
+
+- name: Install K3s
+  shell: curl -sfL https://get.k3s.io | sh -
+  when: not k3s_stat.stat.exists
+
+- name: Wait for K3s node to be ready
+  shell: k3s kubectl get nodes
+  register: nodes_status
+  until: '" Ready " in nodes_status.stdout'
+  retries: 10
+  delay: 15
+  when: not k3s_stat.stat.exists
+
+- name: Create .kube directory for deploy user
+  file:
+    path: "/home/{{ deploy_user }}/.kube"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0700'
+
+- name: Copy Kubeconfig to deploy user
+  copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "/home/{{ deploy_user }}/.kube/config"
+    remote_src: yes
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0600'
+
+- name: Update Kubeconfig to use local context
+  replace:
+    path: "/home/{{ deploy_user }}/.kube/config"
+    regexp: '127.0.0.1'
+    replace: 'localhost'

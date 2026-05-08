@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #050505;
+  --foreground: #ffffff;
+  --primary: #3b82f6; /* Blue 500 */
+  --primary-foreground: #ffffff;
+  --secondary: #0f0f12;
+  --secondary-foreground: #a1a1aa;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --border: #1a1a1e;
+  --radius: 0.75rem;
+}
+
+.dark {
+  /* Sleek Dark is the default */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+/* Sleek Minimalism Utilities */
+@utility sleek-card {
+  @apply bg-secondary border border-border rounded-2xl p-6 transition-all;
+}
+
+@utility sleek-button {
+  @apply bg-primary text-white font-medium rounded-xl px-6 py-3 transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100;
+}
+
+@utility sleek-button-secondary {
+  @apply bg-secondary text-white border border-border font-medium rounded-xl px-6 py-3 transition-all hover:bg-zinc-800 active:scale-[0.98];
+}
+
+@utility sleek-input {
+  @apply bg-secondary border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-zinc-600;
+}
+
+/* Chat Bubbles - Focused and Clean */
+.chat-bubble {
+  @apply relative px-5 py-3.5 rounded-2xl text-sm leading-relaxed max-w-[80%] transition-all;
+}
+
+.chat-bubble-me {
+  @apply bg-primary text-white rounded-tr-none self-end;
+}
+
+.chat-bubble-partner {
+  @apply bg-secondary border border-border text-white rounded-tl-none self-start;
+}
+
+/* Voice Call Ripple - Subtle */
+.ripple {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  opacity: 0;
+  animation: ripple 3s infinite;
+}
+
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 rounded-full hover:bg-zinc-700;
+}
+
+

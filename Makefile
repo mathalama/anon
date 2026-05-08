@@ -2,7 +2,7 @@
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation build-check logs-infra logs-services coturn-status
 .PHONY: up-build up-services-build rebuild-services
 
-SERVICE_PATTERNS=./api-gateway/... ./user-service/... ./matchmaking-service/... ./chat-service/... ./moderation-service/... ./notification-service/...
+SERVICE_PATTERNS=./services/api-gateway/... ./services/user-service/... ./services/matchmaking-service/... ./services/chat-service/... ./services/moderation-service/... ./services/notification-service/...
 
 help:
 	@echo "NektoKZ Makefile"
@@ -32,12 +32,12 @@ build:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
 
 build-check:
-	go build ./api-gateway/cmd/main.go
-	go build ./user-service/cmd/main.go
-	go build ./chat-service/cmd/main.go
-	go build ./matchmaking-service/cmd/main.go
-	go build ./moderation-service/cmd/main.go
-	go build ./notification-service/cmd/main.go
+	go build ./services/api-gateway/cmd/main.go
+	go build ./services/user-service/cmd/main.go
+	go build ./services/chat-service/cmd/main.go
+	go build ./services/matchmaking-service/cmd/main.go
+	go build ./services/moderation-service/cmd/main.go
+	go build ./services/notification-service/cmd/main.go
 
 test:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test.ps1
@@ -49,33 +49,33 @@ up-build: up-infra up-services-build
 	@echo "Project NektoKZ is up and running (built)"
 
 up-infra:
-	docker compose -f docker-compose.infra.yml up -d
+	docker compose -f infrastructure/docker/docker-compose.infra.yml up -d
 
 up-services:
-	docker compose -f docker-compose.services.yml up -d
+	docker compose -f infrastructure/docker/docker-compose.services.yml up -d
 
 up-services-build:
-	docker compose -f docker-compose.services.yml up -d --build
+	docker compose -f infrastructure/docker/docker-compose.services.yml up -d --build
 
 rebuild-services:
-	docker compose -f docker-compose.services.yml up -d --build --force-recreate
+	docker compose -f infrastructure/docker/docker-compose.services.yml up -d --build --force-recreate
 
 down:
-	docker compose -f docker-compose.services.yml down
-	docker compose -f docker-compose.infra.yml down
+	docker compose -f infrastructure/docker/docker-compose.services.yml down
+	docker compose -f infrastructure/docker/docker-compose.infra.yml down
 
 ps:
-	docker compose -f docker-compose.infra.yml ps
-	docker compose -f docker-compose.services.yml ps
+	docker compose -f infrastructure/docker/docker-compose.infra.yml ps
+	docker compose -f infrastructure/docker/docker-compose.services.yml ps
 
 logs:
-	docker compose -f docker-compose.infra.yml logs -f --tail=50
+	docker compose -f infrastructure/docker/docker-compose.infra.yml logs -f --tail=50
 
 logs-infra:
-	docker compose -f docker-compose.infra.yml logs -f
+	docker compose -f infrastructure/docker/docker-compose.infra.yml logs -f
 
 logs-services:
-	docker compose -f docker-compose.services.yml logs -f
+	docker compose -f infrastructure/docker/docker-compose.services.yml logs -f
 
 coturn-status:
 	docker exec nektokz-coturn turnadmin -l
@@ -99,4 +99,4 @@ migrate-moderation:
 migrate: migrate-all
  
 swagger:
-	swag init -g cmd/main.go -d ./api-gateway --output ./api-gateway/docs
+	swag init -g cmd/main.go -d ./services/api-gateway --output ./services/api-gateway/docs

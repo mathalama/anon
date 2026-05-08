@@ -1,0 +1,29 @@
+groups:
+  - name: sumdyk_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Service {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on {{ $labels.instance }}"
+          description: "Error rate is above 1% for more than 2 minutes."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum by (le, instance) (rate(http_request_duration_seconds_bucket[5m]))) > 0.2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.instance }}"
+          description: "95th percentile of latency is above 200ms for more than 2 minutes."

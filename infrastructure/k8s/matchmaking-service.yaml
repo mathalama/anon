@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matchmaking-service
+  namespace: sumdyk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: matchmaking-service
+  template:
+    metadata:
+      labels:
+        app: matchmaking-service
+    spec:
+      containers:
+      - name: matchmaking-service
+        image: ghcr.io/mathalama/matchmaking-service:latest
+        ports:
+        - containerPort: 8082
+        envFrom:
+        - configMapRef:
+            name: sumdyk-config
+        - secretRef:
+            name: sumdyk-secrets
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 10
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: matchmaking-service
+  namespace: sumdyk
+spec:
+  selector:
+    app: matchmaking-service
+  ports:
+  - port: 8082
+    targetPort: 8082

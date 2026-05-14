@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     # Run every Sunday at midnight
-    - cron: '0 0 * * 0'
+    - cron: "0 0 * * 0"
 
 permissions:
   contents: read
@@ -24,6 +24,9 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Install Ansible
+        run: pip install --quiet ansible
+
       - name: Run Ansible SRE Playbook
         env:
           ANSIBLE_HOST_KEY_CHECKING: False
@@ -33,6 +36,6 @@ jobs:
           [servers]
           server1 ansible_host=${{ secrets.SSH_HOST }} ansible_user=${{ secrets.SSH_USER }}
           EOF
-          
+
           # Run the playbook
           ansible-playbook -i inventory.ini infrastructure/ansible/stress-test.yml

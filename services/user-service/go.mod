@@ -18,8 +18,6 @@ require (
 	google.golang.org/grpc v1.81.0
 )
 
-replace github.com/mathalama/nektokz/proto => ../proto
-
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

@@ -46,7 +46,7 @@ next_public_ws_url: "wss://api.yourdomain.com/ws"
 
 # --- Coturn ---
 turn_user: nektokz
-turn_external_ip: 127.0.0.1
+turn_external_ip: "{{ lookup('env', 'TURN_EXTERNAL_IP') | default('127.0.0.1') }}"
 turn_realm: nektokz.kz
 turn_port: 3478
 turn_tls_port: 5349
@@ -57,3 +57,6 @@ toxic_words: "сука,блять,хуй,пизда,fuck,shit,bitch"
 # --- Notification ---
 smtp_host: smtp.gmail.com
 smtp_port: 587
+
+# --- SSH ---
+ssh_public_key: "{{ lookup('env', 'SSH_PUBLIC_KEY') }}"

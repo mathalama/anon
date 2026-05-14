@@ -1,28 +1,6 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  nginx-proxy-manager:
-    image: 'jc21/nginx-proxy-manager:latest'
-    container_name: nginx-proxy-manager
-    restart: always
-    ports:
-      - '${NPM_PUBLIC_BIND_ADDRESS:-0.0.0.0}:80:80'
-      - '${NPM_ADMIN_BIND_ADDRESS:-0.0.0.0}:81:81'
-      - '${NPM_PUBLIC_BIND_ADDRESS:-0.0.0.0}:443:443'
-    volumes:
-      - ./npm/data:/data
-      - ./npm/letsencrypt:/etc/letsencrypt
-    networks:
-      - nektokz-network
-    deploy:
-      resources:
-        limits:
-          cpus: '0.10'
-          memory: 256M
-        reservations:
-          cpus: '0.05'
-          memory: 64M
-
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -32,16 +10,16 @@ services:
       - ../monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - "--config.file=/etc/prometheus/prometheus.yml"
     networks:
       - nektokz-network
     deploy:
       resources:
         limits:
-          cpus: '0.10'
+          cpus: "0.10"
           memory: 512M
         reservations:
-          cpus: '0.05'
+          cpus: "0.05"
           memory: 128M
 
   grafana:
@@ -49,7 +27,7 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - '${GRAFANA_BIND_ADDRESS:-127.0.0.1}:3000:3000'
+      - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
     volumes:
@@ -60,10 +38,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.10'
+          cpus: "0.10"
           memory: 256M
         reservations:
-          cpus: '0.05'
+          cpus: "0.05"
           memory: 64M
 
   node-exporter:
@@ -75,18 +53,18 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
       - nektokz-network
     deploy:
       resources:
         limits:
-          cpus: '0.05'
+          cpus: "0.05"
           memory: 64M
         reservations:
-          cpus: '0.02'
+          cpus: "0.02"
           memory: 32M
 
   loki:
@@ -104,10 +82,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.10'
+          cpus: "0.10"
           memory: 256M
         reservations:
-          cpus: '0.05'
+          cpus: "0.05"
           memory: 64M
 
   promtail:
@@ -128,10 +106,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.05'
+          cpus: "0.05"
           memory: 128M
         reservations:
-          cpus: '0.02'
+          cpus: "0.02"
           memory: 64M
 
 networks:

@@ -3,6 +3,7 @@ module github.com/mathalama/nektokz/notification-service
 go 1.25.0
 
 require (
+	github.com/mathalama/nektokz/pkg v0.0.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/prometheus/client_golang v1.23.2
 )

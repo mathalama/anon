@@ -45,6 +45,7 @@ jobs:
           OWNER_LOWER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           IMAGE_REF="ghcr.io/${OWNER_LOWER}/${{ inputs.image_name }}:sha-${GITHUB_SHA::7}"
           echo "image_ref=${IMAGE_REF}" >> "${GITHUB_OUTPUT}"
+          echo "owner_lower=${OWNER_LOWER}" >> "${GITHUB_OUTPUT}"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -64,58 +65,12 @@ jobs:
           push: true
           tags: |
             ${{ steps.image.outputs.image_ref }}
-            ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:latest
+            ghcr.io/${{ steps.image.outputs.owner_lower }}/${{ inputs.image_name }}:latest
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:cache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:cache,mode=max
 
-  provision:
-    needs: build-and-push
-    name: Ansible — Configure Server
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Ansible
-        run: pip install --quiet ansible
-
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
-
-      - name: Add server to known hosts
-        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Write Ansible secrets
-        run: |
-          cat > infrastructure/ansible/group_vars/secrets.yml << 'EOF'
-          db_password: "${{ secrets.DB_PASSWORD }}"
-          jwt_secret: "${{ secrets.JWT_SECRET }}"
-          internal_token: "${{ secrets.INTERNAL_TOKEN }}"
-          ssh_public_key: "${{ secrets.SSH_PUBLIC_KEY }}"
-          EOF
-
-      - name: Write Ansible inventory
-        run: |
-          cat > infrastructure/ansible/inventory.ini << 'EOF'
-          [servers]
-          server1 ansible_host=${{ secrets.SSH_HOST }} ansible_user=${{ secrets.SSH_USER }}
-
-          [all:vars]
-          ansible_python_interpreter=/usr/bin/python3
-          EOF
-
-      - name: Run Ansible Playbook
-        run: >
-          ansible-playbook
-          -i infrastructure/ansible/inventory.ini
-          infrastructure/ansible/playbook.yml
-          --tags "base,docker,security"
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-
   deploy:
-    needs: provision
+    needs: build-and-push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

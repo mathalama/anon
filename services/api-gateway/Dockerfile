@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25 AS builder
 WORKDIR /app
 
 # Copy go.work and all go.mod/go.sum files to cache dependencies

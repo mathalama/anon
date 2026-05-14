@@ -21,13 +21,22 @@ jobs:
         run: pip install --quiet ansible
 
       - name: Write SSH private key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          echo "Key lines: $(wc -l < ~/.ssh/deploy_key)"
+          head -1 ~/.ssh/deploy_key
+          tail -1 ~/.ssh/deploy_key
+          ssh-keygen -l -f ~/.ssh/deploy_key
 
       - name: Add server to known hosts
         run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo SSH OK"
 
       - name: Write Ansible secrets
         run: |

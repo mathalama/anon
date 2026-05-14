@@ -36,7 +36,7 @@ jobs:
         run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Test SSH connection
-        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo SSH OK"
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo SSH OK" 2>&1 | tail -30
 
       - name: Write Ansible secrets
         run: |

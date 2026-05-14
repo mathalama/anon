@@ -6,7 +6,7 @@ arch: amd64
 # --- Deployment Configuration ---
 deploy_user: devops
 project_root: /home/devops/deploy
-repo_url: git@github.com:mathalama/anon.git
+repo_url: "{{ lookup('env', 'REPO_URL') | default('git@github.com:mathalama/anon.git') }}"
 app_version: prod
 k3s_version: "v1.31.0+k3s1"
 
@@ -37,7 +37,7 @@ moderation_service_port: 8084
 notification_service_port: 8085
 
 # --- Database ---
-db_user: mathalama
+db_user: "{{ lookup('env', 'DB_USER') | default('mathalama') }}"
 
 # --- Frontend ---
 # Задаётся через ALLOWED_ORIGINS в .env / GitHub Secret COMMON_ENV
@@ -47,9 +47,9 @@ next_public_api_url: "{{ lookup('env', 'NEXT_PUBLIC_API_URL') | default('https:/
 next_public_ws_url: "{{ lookup('env', 'NEXT_PUBLIC_WS_URL') | default('wss://api.yourdomain.com/ws') }}"
 
 # --- Coturn ---
-turn_user: nektokz
+turn_user: "{{ lookup('env', 'TURN_USER') | default('nektokz') }}"
 turn_external_ip: "{{ lookup('env', 'TURN_EXTERNAL_IP') | default('127.0.0.1') }}"
-turn_realm: nektokz.kz
+turn_realm: "{{ lookup('env', 'TURN_REALM') | default('nektokz.kz') }}"
 turn_port: 3478
 turn_tls_port: 5349
 

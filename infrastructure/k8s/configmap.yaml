@@ -11,5 +11,3 @@ data:
   CHAT_SERVICE_URL: "http://chat-service:8083"
   MODERATION_SERVICE_URL: "http://moderation-service:8084"
   NOTIFICATION_SERVICE_URL: "http://notification-service:8085"
-  DB_URL: "postgres://mathalama:3a5c0b48fdf60b14@postgres:5432/users_db?sslmode=disable"
-  REDIS_URL: "redis://:3a5c0b48fdf60b14@redis:6379"

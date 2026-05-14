@@ -35,4 +35,4 @@ jobs:
           EOF
           
           # Run the playbook
-          ansible-playbook -i inventory.ini ansible/stress-test.yml
+          ansible-playbook -i inventory.ini infrastructure/ansible/stress-test.yml

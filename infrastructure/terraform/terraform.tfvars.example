@@ -1,19 +1,12 @@
-# Yandex Cloud Credentials
-yc_token     = "y0_..."
-yc_cloud_id  = "b1g..."
-yc_folder_id = "b1g..."
-yc_zone      = "kz-central1-a"
-
-# Instance Configuration
-instance_name        = "sumdyk-sre-pro-node"
-instance_cores       = 4
-instance_memory      = 8
+yc_cloud_id  = ""
+yc_folder_id = ""
+yc_zone      = ""
+subnet_cidr = ["10.10.0.0/24"]
+instance_name = "app-node"
+instance_cores = 1
+instance_memory = 1
+boot_disk_size = 20
 instance_platform_id = "standard-v3"
-boot_disk_size       = 50
-os_image_id          = "fd879gb88170t0708m0u"
-
-# Networking
-subnet_cidr = ["10.0.0.0/24"]
-
-# Access
-ssh_public_key = "ssh-rsa AAAAB3Nza..."
+allowed_ports = [22, 80, 443]
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+yc_token = ""

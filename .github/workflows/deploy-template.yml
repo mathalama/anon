@@ -14,16 +14,24 @@ on:
       env_image_var:
         required: true
         type: string
-    secrets:
-      SSH_HOST: { required: true }
-      SSH_USER: { required: true }
-      SSH_KEY: { required: true }
-      DEPLOY_PATH: { required: true }
-      GHCR_TOKEN: { required: true }
-      GHCR_USERNAME: { required: true }
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/${{ inputs.service_folder }}/go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./services/${{ inputs.service_folder }}/...
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: write }
     outputs:
@@ -45,18 +53,69 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ inputs.service_folder }}
-          file: ./${{ inputs.service_folder }}/Dockerfile
+          context: .
+          file: ./services/${{ inputs.service_folder }}/Dockerfile
           push: true
           tags: |
             ${{ steps.image.outputs.image_ref }}
             ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:cache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:cache,mode=max
+
+  provision:
+    needs: build-and-push
+    name: Ansible — Configure Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install --quiet ansible
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Add server to known hosts
+        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Write Ansible secrets
+        run: |
+          cat > infrastructure/ansible/group_vars/secrets.yml << 'EOF'
+          db_password: "${{ secrets.DB_PASSWORD }}"
+          jwt_secret: "${{ secrets.JWT_SECRET }}"
+          internal_token: "${{ secrets.INTERNAL_TOKEN }}"
+          ssh_public_key: "${{ secrets.SSH_PUBLIC_KEY }}"
+          EOF
+
+      - name: Write Ansible inventory
+        run: |
+          cat > infrastructure/ansible/inventory.ini << 'EOF'
+          [servers]
+          server1 ansible_host=${{ secrets.SSH_HOST }} ansible_user=${{ secrets.SSH_USER }}
+
+          [all:vars]
+          ansible_python_interpreter=/usr/bin/python3
+          EOF
+
+      - name: Run Ansible Playbook
+        run: >
+          ansible-playbook
+          -i infrastructure/ansible/inventory.ini
+          infrastructure/ansible/playbook.yml
+          --tags "base,docker,security"
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
 
   deploy:
-    needs: build-and-push
+    needs: provision
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,10 +126,10 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.services.yml"
+          source: "infrastructure/docker/docker-compose.services.yml"
           target: "${{ secrets.DEPLOY_PATH }}/app"
 
-      - name: Server SSH Deploy
+      - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
         env:
           IMAGE: ${{ needs.build-and-push.outputs.image_ref }}
@@ -86,12 +145,36 @@ jobs:
             set -eu
             cd "$FINAL_PATH"
 
-            # Дописываем актуальный тег образа в общий .env
             sed -i '/^${{ inputs.env_image_var }}=/d' .env
             echo "${{ inputs.env_image_var }}=$IMAGE" >> .env
 
             echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
 
-            # Подтягиваем новый образ и перезапускаем ТОЛЬКО нужный сервис
             docker compose -f docker-compose.services.yml pull ${{ inputs.compose_service }}
             docker compose -f docker-compose.services.yml up -d --no-deps ${{ inputs.compose_service }}
+
+  healthcheck:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Healthcheck
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -eu
+
+            echo "Waiting for ${{ inputs.compose_service }} to start..."
+            sleep 5
+
+            STATUS=$(docker inspect --format='{{.State.Status}}' ${{ inputs.compose_service }} 2>/dev/null || echo "not_found")
+
+            if [ "$STATUS" != "running" ]; then
+              echo "ERROR: ${{ inputs.compose_service }} is not running (status: $STATUS)"
+              docker logs ${{ inputs.compose_service }} --tail 50 || true
+              exit 1
+            fi
+
+            echo "OK: ${{ inputs.compose_service }} is running"

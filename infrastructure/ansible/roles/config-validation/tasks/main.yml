@@ -40,7 +40,7 @@
 
 - name: Check if Docker Compose template files exist
   stat:
-    path: "{{ playbook_dir }}/../{{ item }}"
+    path: "{{ playbook_dir }}/../docker/{{ item }}"
   loop:
     - docker-compose.infra.yml
     - docker-compose.services.yml

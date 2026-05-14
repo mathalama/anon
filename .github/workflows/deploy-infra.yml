@@ -1,9 +1,9 @@
 name: Deploy Base (DB & WebRTC)
 on:
   push:
-    branches: ["dev"]
+    branches: ["prod"]
     paths:
-      - 'docker-compose.infra.yml'
+      - "infrastructure/docker/docker-compose.infra.yml"
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
             WORKDIR="${{ secrets.DEPLOY_PATH }}/app"
             mkdir -p $WORKDIR
             cd $WORKDIR
-            
+
             echo "${{ secrets.COMMON_ENV }}" > .env
             echo "TURN_EXTERNAL_IP=${{ secrets.SSH_HOST }}" >> .env
 
@@ -36,7 +36,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.infra.yml,docker/postgres/init/**"
+          source: "infrastructure/docker/docker-compose.infra.yml,infrastructure/docker/postgres/init/**"
           target: "${{ secrets.DEPLOY_PATH }}/app"
 
       - name: Docker Up
@@ -50,4 +50,3 @@ jobs:
 
             docker network inspect nektokz-network >/dev/null 2>&1 || docker network create nektokz-network
             docker compose -f docker-compose.infra.yml up -d
-

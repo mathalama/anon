@@ -1,10 +1,10 @@
 name: Deploy Monitoring & Proxy
 on:
   push:
-    branches: ["dev"]
+    branches: ["prod"]
     paths:
-      - 'docker-compose.monitoring.yml'
-      - 'monitoring/**'
+      - "infrastructure/docker/docker-compose.monitoring.yml"
+      - "infrastructure/monitoring/**"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "docker-compose.monitoring.yml,monitoring/**"
+          source: "infrastructure/docker/docker-compose.monitoring.yml,infrastructure/monitoring/**"
           target: "${{ secrets.DEPLOY_PATH }}/monitoring"
 
       - name: Start Monitoring Stack
@@ -34,11 +34,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd ${{ secrets.DEPLOY_PATH }}/monitoring
-            
+
             # Stop old monitoring containers
-            docker-compose -f docker-compose.monitoring.yml down
-            
+            docker compose -f docker-compose.monitoring.yml down
+
             # Start fresh monitoring stack
-            docker-compose -f docker-compose.monitoring.yml up -d
-            
+            docker compose -f docker-compose.monitoring.yml up -d
+
             echo "Monitoring stack deployed"

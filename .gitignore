@@ -47,6 +47,7 @@ bin/
 **/*.tfstate.*
 **/terraform.tfvars
 **/.terraform.lock.hcl
+**/key.json
 
 # --- Ansible ---
 **/ansible.log
@@ -54,6 +55,10 @@ bin/
 **/group_vars/secrets.vault.yml
 **/.vault_pass
 **/*.retry
+**/inventory.ini
+
+# --- Local ansible copy (root level) ---
+/ansible/
 
 # --- AI/Assistant Temp ---
 .gemini/

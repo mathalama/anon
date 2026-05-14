@@ -2,10 +2,10 @@ name: Deploy Chat Service
 
 on:
   push:
-    branches: ["dev"]
+    branches: ["prod"]
     paths:
-      - "chat-service/**"
-      - "docker-compose.services.yml"
+      - "services/chat-service/**"
+      - "infrastructure/docker/docker-compose.services.yml"
   workflow_dispatch:
 
 permissions:
@@ -20,10 +20,4 @@ jobs:
       image_name: "chat-service"
       compose_service: "chat-service"
       env_image_var: "CHAT_SERVICE_IMAGE"
-    secrets:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{ secrets.SSH_KEY }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+    secrets: inherit

@@ -28,7 +28,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ project_root }}/app"
     files:
-      - docker-compose.infra.yml
+      - infrastructure/docker/docker-compose.infra.yml
     state: present
 
 - name: Wait for PostgreSQL to be ready
@@ -47,7 +47,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ project_root }}/app"
     files:
-      - docker-compose.services.yml
+      - infrastructure/docker/docker-compose.services.yml
     state: present
     build: always
 
@@ -55,7 +55,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ project_root }}/app"
     files:
-      - docker-compose.monitoring.yml
+      - infrastructure/docker/docker-compose.monitoring.yml
     state: present
 
 - name: Verify Health Checks

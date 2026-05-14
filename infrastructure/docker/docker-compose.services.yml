@@ -23,10 +23,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.50'
+          cpus: "0.50"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     networks:
       - nektokz-network
@@ -49,15 +49,16 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.30'
+          cpus: "0.30"
           memory: 256M
         reservations:
-          cpus: '0.15'
+          cpus: "0.15"
           memory: 128M
     networks:
       - nektokz-network
 
   matchmaking-service:
+    image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
     build:
       context: ../../
       dockerfile: services/matchmaking-service/Dockerfile
@@ -74,10 +75,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.50'
+          cpus: "0.50"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     networks:
       - nektokz-network
@@ -100,10 +101,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.50'
+          cpus: "0.50"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     networks:
       - nektokz-network
@@ -127,10 +128,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.50'
+          cpus: "0.50"
           memory: 256M
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 128M
     networks:
       - nektokz-network
@@ -149,10 +150,10 @@ services:
       replicas: 1
       resources:
         limits:
-          cpus: '0.30'
+          cpus: "0.30"
           memory: 256M
         reservations:
-          cpus: '0.15'
+          cpus: "0.15"
           memory: 128M
     networks:
       - nektokz-network

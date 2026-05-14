@@ -6,16 +6,18 @@ arch: amd64
 # --- Deployment Configuration ---
 deploy_user: devops
 project_root: /home/devops/deploy
+repo_url: git@github.com:mathalama/anon.git
+app_version: prod
 
 # --- Ports for Firewall ---
 allowed_ports:
-  - 22    # SSH
-  - 80    # HTTP
-  - 443   # HTTPS
-  - 81    # NPM Admin
-  - 3000  # Grafana
-  - 9090  # Prometheus
-  - 6443  # Kubernetes API
+  - 22 # SSH
+  - 80 # HTTP
+  - 443 # HTTPS
+  - 81 # NPM Admin
+  - 3000 # Grafana
+  - 9090 # Prometheus
+  - 6443 # Kubernetes API
 
 # --- Infrastructure Ports ---
 postgres_port: 5432

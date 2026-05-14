@@ -2,10 +2,10 @@ name: Deploy User Service
 
 on:
   push:
-    branches: ["dev"]
+    branches: ["prod"]
     paths:
-      - "user-service/**"
-      - "docker-compose.services.yml"
+      - "services/user-service/**"
+      - "infrastructure/docker/docker-compose.services.yml"
   workflow_dispatch:
 
 permissions:
@@ -20,10 +20,4 @@ jobs:
       image_name: "user-service"
       compose_service: "user-service"
       env_image_var: "USER_SERVICE_IMAGE"
-    secrets:
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_KEY: ${{ secrets.SSH_KEY }}
-      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+    secrets: inherit

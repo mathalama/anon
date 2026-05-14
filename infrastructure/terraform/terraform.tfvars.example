@@ -7,6 +7,6 @@ instance_cores = 1
 instance_memory = 1
 boot_disk_size = 20
 instance_platform_id = "standard-v3"
-allowed_ports = [22, 80, 443]
+allowed_ports = [22, 80, 81, 443, 3000, 9090, 6443]
 ssh_public_key_path = "~/.ssh/id_rsa.pub"
 yc_token = ""

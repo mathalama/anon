@@ -5,7 +5,7 @@
   register: k3s_stat
 
 - name: Install K3s
-  shell: curl -sfL https://get.k3s.io | sh -
+  shell: "curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -"
   when: not k3s_stat.stat.exists
 
 - name: Wait for K3s node to be ready
@@ -22,7 +22,7 @@
     state: directory
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
-    mode: '0700'
+    mode: "0700"
 
 - name: Copy Kubeconfig to deploy user
   copy:
@@ -31,10 +31,10 @@
     remote_src: yes
     owner: "{{ deploy_user }}"
     group: "{{ deploy_user }}"
-    mode: '0600'
+    mode: "0600"
 
 - name: Update Kubeconfig to use local context
   replace:
     path: "/home/{{ deploy_user }}/.kube/config"
-    regexp: '127.0.0.1'
-    replace: 'localhost'
+    regexp: "127.0.0.1"
+    replace: "localhost"

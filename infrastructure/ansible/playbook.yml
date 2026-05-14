@@ -26,8 +26,14 @@
       tags: [always]
 
   roles:
-    - { role: config-validation, tags: ["validate", "setup", "always"] }
+    - {
+        role: config-validation,
+        tags: ["validate", "config-validation", "setup", "always"],
+      }
     - { role: base, tags: ["base", "setup"] }
     - { role: docker, tags: ["docker", "setup"] }
     - { role: k3s, tags: ["k3s", "setup"] }
     - { role: security, tags: ["security", "setup"] }
+    # role: app — намеренно не включён в плейбук.
+    # Деплой приложения выполняется через CI/CD (GitHub Actions):
+    #   docker pull из GHCR → docker compose up --no-deps <service>

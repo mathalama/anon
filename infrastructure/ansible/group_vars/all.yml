@@ -37,7 +37,7 @@ moderation_service_port: 8084
 notification_service_port: 8085
 
 # --- Database ---
-db_user: "{{ lookup('env', 'DB_USER') | default('mathalama') }}"
+db_user: "{{ lookup('env', 'DB_USER') | default('mathalama', true) }}"
 
 # --- Frontend ---
 # Задаётся через ALLOWED_ORIGINS в .env / GitHub Secret COMMON_ENV

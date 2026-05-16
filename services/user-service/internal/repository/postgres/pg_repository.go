@@ -23,25 +23,20 @@ func (r *PGUserRepository) Create(ctx context.Context, user *domain.User) error 
 		user.Interests = []string{}
 	}
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO users (id, device_id, email, password_hash, gender, interests, is_anonymous, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-	`, user.ID, nullIfEmpty(user.DeviceID), nullIfEmpty(user.Email), nullIfEmpty(user.PasswordHash), 
-	   user.Gender, user.Interests, user.IsAnonymous, user.CreatedAt)
+		INSERT INTO users (id, device_id, gender, interests, is_anonymous, created_at)
+		VALUES ($1,$2,$3,$4,$5,$6)
+	`, user.ID, nullIfEmpty(user.DeviceID),
+		user.Gender, user.Interests, user.IsAnonymous, user.CreatedAt)
 	return err
 }
 
 func (r *PGUserRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE id=$1`, id)
+	return r.getOne(ctx, `SELECT id, device_id, gender, interests, is_anonymous, created_at FROM users WHERE id=$1`, id)
 }
 
 func (r *PGUserRepository) GetByDeviceID(ctx context.Context, deviceID string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE device_id=$1`, deviceID)
+	return r.getOne(ctx, `SELECT id, device_id, gender, interests, is_anonymous, created_at FROM users WHERE device_id=$1`, deviceID)
 }
-
-func (r *PGUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	return r.getOne(ctx, `SELECT id, device_id, email, password_hash, gender, interests, is_anonymous, created_at FROM users WHERE email=$1`, email)
-}
-
 
 func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error {
 	if user.Interests == nil {
@@ -49,10 +44,10 @@ func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error 
 	}
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE users
-		SET device_id=$2, email=$3, password_hash=$4, gender=$5, interests=$6, is_anonymous=$7
+		SET device_id=$2, gender=$3, interests=$4, is_anonymous=$5
 		WHERE id=$1
-	`, user.ID, nullIfEmpty(user.DeviceID), nullIfEmpty(user.Email), nullIfEmpty(user.PasswordHash), 
-	   user.Gender, user.Interests, user.IsAnonymous)
+	`, user.ID, nullIfEmpty(user.DeviceID),
+		user.Gender, user.Interests, user.IsAnonymous)
 	if err != nil {
 		return err
 	}
@@ -61,7 +56,6 @@ func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error 
 	}
 	return nil
 }
-
 func (r *PGUserRepository) CreateBan(ctx context.Context, ban *domain.Ban) error {
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO bans (id, user_id, reason, banned_by, expires_at, created_at)
@@ -93,18 +87,18 @@ func (r *PGUserRepository) getOne(ctx context.Context, q string, arg any) (*doma
 	row := r.pool.QueryRow(ctx, q, arg)
 
 	var u domain.User
-	var deviceID, email, passwordHash *string
+	var deviceID *string
 
-	if err := row.Scan(&u.ID, &deviceID, &email, &passwordHash, &u.Gender, &u.Interests, &u.IsAnonymous, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &deviceID, &u.Gender, &u.Interests, &u.IsAnonymous, &u.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, errors.New("user not found")
 		}
 		return nil, err
 	}
 
-	if deviceID != nil { u.DeviceID = *deviceID }
-	if email != nil { u.Email = *email }
-	if passwordHash != nil { u.PasswordHash = *passwordHash }
+	if deviceID != nil {
+		u.DeviceID = *deviceID
+	}
 
 	return &u, nil
 }
@@ -122,4 +116,3 @@ func nullIfZero(i int64) any {
 	}
 	return i
 }
-

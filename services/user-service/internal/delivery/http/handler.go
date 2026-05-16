@@ -10,22 +10,20 @@ import (
 )
 
 type UserHandler struct {
-	usecase domain.UserUsecase
+	usecase       domain.UserUsecase
 	internalToken string
 }
 
 func NewUserHandler(r chi.Router, usecase domain.UserUsecase, internalToken string) {
 	handler := &UserHandler{
-		usecase:        usecase,
-		internalToken:  internalToken,
+		usecase:       usecase,
+		internalToken: internalToken,
 	}
 
 	r.Route("/users", func(r chi.Router) {
 		r.Post("/anonymous", handler.CreateAnonymous)
-		r.Post("/register", handler.Register)
-		r.Post("/login", handler.Login)
 		r.Post("/refresh", handler.Refresh)
-		
+
 		r.Group(func(r chi.Router) {
 			// Middleware for JWT would go here
 			r.Get("/me", handler.GetMe)
@@ -59,47 +57,6 @@ func (h *UserHandler) CreateAnonymous(w http.ResponseWriter, r *http.Request) {
 		"refresh_token": refresh,
 	})
 }
-
-func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := h.usecase.Register(r.Context(), req.Email, req.Password); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-}
-
-func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	access, refresh, err := h.usecase.Login(r.Context(), req.Email, req.Password)
-	if err != nil {
-		http.Error(w, "invalid credentials", http.StatusUnauthorized)
-		return
-	}
-
-	json.NewEncoder(w).Encode(map[string]string{
-		"access_token":  access,
-		"refresh_token": refresh,
-	})
-}
-
 
 func (h *UserHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req struct {

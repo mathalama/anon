@@ -25,6 +25,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           source: "infrastructure/docker/docker-compose.monitoring.yml,infrastructure/monitoring/**"
           target: "${{ secrets.DEPLOY_PATH }}/monitoring"
+          strip_components: 2
 
       - name: Start Monitoring Stack
         uses: appleboy/ssh-action@v1.2.0
@@ -36,9 +37,9 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}/monitoring
 
             # Stop old monitoring containers
-            docker compose -f docker-compose.monitoring.yml down
+            sudo docker compose -f docker-compose.monitoring.yml down
 
             # Start fresh monitoring stack
-            docker compose -f docker-compose.monitoring.yml up -d
+            sudo docker compose -f docker-compose.monitoring.yml up -d
 
             echo "Monitoring stack deployed"

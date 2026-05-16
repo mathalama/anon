@@ -38,6 +38,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           source: "infrastructure/docker/docker-compose.infra.yml,infrastructure/docker/postgres/init/**"
           target: "${{ secrets.DEPLOY_PATH }}/app"
+          strip_components: 2
 
       - name: Docker Up
         uses: appleboy/ssh-action@v1.2.0
@@ -48,5 +49,5 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}/app
 
-            docker network inspect nektokz-network >/dev/null 2>&1 || docker network create nektokz-network
-            docker compose -f docker-compose.infra.yml up -d
+            sudo docker network inspect nektokz-network >/dev/null 2>&1 || sudo docker network create nektokz-network
+            sudo docker compose -f docker-compose.infra.yml up -d

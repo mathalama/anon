@@ -83,6 +83,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           source: "infrastructure/docker/docker-compose.services.yml"
           target: "${{ secrets.DEPLOY_PATH }}/app"
+          strip_components: 2
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.2.0
@@ -103,10 +104,10 @@ jobs:
             sed -i '/^${{ inputs.env_image_var }}=/d' .env
             echo "${{ inputs.env_image_var }}=$IMAGE" >> .env
 
-            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin
+            echo "$GH_TOKEN" | sudo docker login ghcr.io -u "$GH_USER" --password-stdin
 
-            docker compose -f docker-compose.services.yml pull ${{ inputs.compose_service }}
-            docker compose -f docker-compose.services.yml up -d --no-deps ${{ inputs.compose_service }}
+            sudo docker compose -f docker-compose.services.yml pull ${{ inputs.compose_service }}
+            sudo docker compose -f docker-compose.services.yml up -d --no-deps ${{ inputs.compose_service }}
 
   healthcheck:
     needs: deploy
@@ -124,11 +125,11 @@ jobs:
             echo "Waiting for ${{ inputs.compose_service }} to start..."
             sleep 5
 
-            STATUS=$(docker inspect --format='{{.State.Status}}' ${{ inputs.compose_service }} 2>/dev/null || echo "not_found")
+            STATUS=$(sudo docker inspect --format='{{.State.Status}}' ${{ inputs.compose_service }} 2>/dev/null || echo "not_found")
 
             if [ "$STATUS" != "running" ]; then
               echo "ERROR: ${{ inputs.compose_service }} is not running (status: $STATUS)"
-              docker logs ${{ inputs.compose_service }} --tail 50 || true
+              sudo docker logs ${{ inputs.compose_service }} --tail 50 || true
               exit 1
             fi
 

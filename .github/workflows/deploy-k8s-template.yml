@@ -1,0 +1,74 @@
+name: Reusable K8s Deploy Template
+on:
+  workflow_call:
+    inputs:
+      service_name:
+        required: true
+        type: string
+      build_context:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      manifest_path:
+        required: true
+        type: string
+      deployment_name:
+        required: true
+        type: string
+      namespace:
+        required: true
+        type: string
+      build_args:
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: k8s-${{ inputs.deployment_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          FINAL_PATH: "${{ secrets.DEPLOY_PATH }}/app"
+          SERVICE_NAME: "${{ inputs.service_name }}"
+          BUILD_CONTEXT: "${{ inputs.build_context }}"
+          DOCKERFILE: "${{ inputs.dockerfile }}"
+          MANIFEST_PATH: "${{ inputs.manifest_path }}"
+          DEPLOYMENT_NAME: "${{ inputs.deployment_name }}"
+          NAMESPACE: "${{ inputs.namespace }}"
+          BUILD_ARGS: "${{ inputs.build_args }}"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_REPOSITORY: "${{ github.repository }}"
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: FINAL_PATH,SERVICE_NAME,BUILD_CONTEXT,DOCKERFILE,MANIFEST_PATH,DEPLOYMENT_NAME,NAMESPACE,BUILD_ARGS,GITHUB_TOKEN,GITHUB_REPOSITORY
+          script: |
+            set -eu
+            export KUBECONFIG="$HOME/.kube/config"
+
+            if [ ! -d "$FINAL_PATH/.git" ]; then
+              git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$FINAL_PATH"
+            fi
+
+            cd "$FINAL_PATH"
+            git pull --ff-only
+
+            COMMIT_SHA="$(git rev-parse --short=7 HEAD)"
+            IMAGE_REF="${SERVICE_NAME}:sha-${COMMIT_SHA}"
+            MANIFEST_FILE="/tmp/${DEPLOYMENT_NAME}.yaml"
+
+            docker build $BUILD_ARGS -t "$IMAGE_REF" -f "$DOCKERFILE" "$BUILD_CONTEXT"
+
+            sed "s|__IMAGE__|${IMAGE_REF}|g" "$MANIFEST_PATH" > "$MANIFEST_FILE"
+
+            kubectl apply -f "$MANIFEST_FILE"
+            kubectl -n "$NAMESPACE" rollout status "deployment/${DEPLOYMENT_NAME}" --timeout=180s

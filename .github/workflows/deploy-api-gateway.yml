@@ -5,19 +5,24 @@ on:
     branches: ["prod"]
     paths:
       - "services/api-gateway/**"
-      - "infrastructure/docker/docker-compose.services.yml"
+      - "infrastructure/k8s/api-gateway.yaml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: deploy-api-gateway
+  cancel-in-progress: true
 
 jobs:
   run-deploy:
-    uses: ./.github/workflows/deploy-template.yml
+    uses: ./.github/workflows/deploy-k8s-template.yml
     with:
-      service_folder: "api-gateway"
-      image_name: "api-gateway"
-      compose_service: "api-gateway"
-      env_image_var: "API_GATEWAY_IMAGE"
+      service_name: "api-gateway"
+      build_context: "."
+      dockerfile: "services/api-gateway/Dockerfile"
+      manifest_path: "infrastructure/k8s/api-gateway.yaml"
+      deployment_name: "api-gateway"
+      namespace: "sumdyk"
     secrets: inherit

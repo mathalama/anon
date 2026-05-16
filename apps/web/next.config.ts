@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "standalone",
   allowedDevOrigins: ["nektokz.org", "lvh.me", "*.loca.lt", "*.ngrok-free.app"],
 };
 

@@ -5,41 +5,45 @@ on:
     paths:
       - "infrastructure/docker/docker-compose.monitoring.yml"
       - "infrastructure/monitoring/**"
+  workflow_run:
+    workflows: ["Deploy Base (DB & WebRTC)"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: deploy-monitoring
+  cancel-in-progress: true
 
 jobs:
   deploy-monitoring:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Copy Monitoring Files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "infrastructure/docker/docker-compose.monitoring.yml,infrastructure/monitoring/**"
-          target: "${{ secrets.DEPLOY_PATH }}/monitoring"
-          strip_components: 2
-
-      - name: Start Monitoring Stack
+      - name: Deploy Monitoring Stack
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          WORKDIR: "${{ secrets.DEPLOY_PATH }}/app"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_REPOSITORY: "${{ github.repository }}"
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: WORKDIR,GITHUB_TOKEN,GITHUB_REPOSITORY
           script: |
-            cd ${{ secrets.DEPLOY_PATH }}/monitoring
+            set -eu
+            if [ ! -d "$WORKDIR/.git" ]; then
+              git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$WORKDIR"
+            fi
 
-            # Stop old monitoring containers
-            sudo docker compose -f docker-compose.monitoring.yml down
+            cd "$WORKDIR"
 
-            # Start fresh monitoring stack
-            sudo docker compose -f docker-compose.monitoring.yml up -d
+            git pull --ff-only
+
+            docker compose -f infrastructure/docker/docker-compose.monitoring.yml down
+            docker compose -f infrastructure/docker/docker-compose.monitoring.yml up -d
 
             echo "Monitoring stack deployed"

@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: provision
+  cancel-in-progress: true
+
 jobs:
   ansible:
     name: Ansible — Configure Server
@@ -63,6 +67,6 @@ jobs:
           -i infrastructure/ansible/inventory.ini
           infrastructure/ansible/playbook.yml
           --private-key ~/.ssh/deploy_key
-          --tags "base,docker,security"
+          --tags "base,docker,k3s,security"
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"

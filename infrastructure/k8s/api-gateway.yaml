@@ -15,9 +15,13 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: ghcr.io/mathalama/api-gateway:latest
+        image: __IMAGE__
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
+        env:
+        - name: PORT
+          value: "8080"
         envFrom:
         - configMapRef:
             name: sumdyk-config
@@ -29,6 +33,12 @@ spec:
             port: 8080
           initialDelaySeconds: 15
           periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service

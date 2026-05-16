@@ -1,0 +1,105 @@
+name: Deploy Application Stack
+
+on:
+  workflow_run:
+    workflows: ["Bootstrap Kubernetes"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-apps
+  cancel-in-progress: true
+
+jobs:
+  user-service:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "user-service"
+      build_context: "."
+      dockerfile: "services/user-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/user-service.yaml"
+      deployment_name: "user-service"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  matchmaking-service:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: user-service
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "matchmaking-service"
+      build_context: "."
+      dockerfile: "services/matchmaking-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/matchmaking-service.yaml"
+      deployment_name: "matchmaking-service"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  chat-service:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: user-service
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "chat-service"
+      build_context: "."
+      dockerfile: "services/chat-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/chat-service.yaml"
+      deployment_name: "chat-service"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  moderation-service:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: [user-service, chat-service]
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "moderation-service"
+      build_context: "."
+      dockerfile: "services/moderation-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/moderation-service.yaml"
+      deployment_name: "moderation-service"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  notification-service:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "notification-service"
+      build_context: "."
+      dockerfile: "services/notification-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/notification-service.yaml"
+      deployment_name: "notification-service"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  api-gateway:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: [user-service, matchmaking-service, chat-service, moderation-service, notification-service]
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "api-gateway"
+      build_context: "."
+      dockerfile: "services/api-gateway/Dockerfile"
+      manifest_path: "infrastructure/k8s/api-gateway.yaml"
+      deployment_name: "api-gateway"
+      namespace: "sumdyk"
+    secrets: inherit
+
+  frontend:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    needs: api-gateway
+    uses: ./.github/workflows/deploy-k8s-template.yml
+    with:
+      service_name: "frontend"
+      build_context: "apps/web"
+      dockerfile: "apps/web/Dockerfile"
+      manifest_path: "infrastructure/k8s/frontend.yaml"
+      deployment_name: "frontend"
+      namespace: "sumdyk"
+      build_args: "--build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} --build-arg NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}"
+    secrets: inherit

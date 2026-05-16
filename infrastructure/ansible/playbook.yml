@@ -35,5 +35,5 @@
     - { role: k3s, tags: ["k3s", "setup"] }
     - { role: security, tags: ["security", "setup"] }
     # role: app — намеренно не включён в плейбук.
-    # Деплой приложения выполняется через CI/CD (GitHub Actions):
-    #   docker pull из GHCR → docker compose up --no-deps <service>
+    # Деплой приложения выполняется через CI/CD (GitHub Actions) отдельно:
+    #   SSH на сервер → git clone/pull → docker build → kubectl apply

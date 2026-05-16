@@ -4,50 +4,46 @@ on:
     branches: ["prod"]
     paths:
       - "infrastructure/docker/docker-compose.infra.yml"
+      - "infrastructure/docker/postgres/init/**"
+  workflow_run:
+    workflows: ["Provision Server"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: deploy-infra
+  cancel-in-progress: true
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Prepare Environment
+      - name: Deploy Infrastructure
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          WORKDIR: "${{ secrets.DEPLOY_PATH }}/app"
+          COMMON_ENV: "${{ secrets.COMMON_ENV }}"
+          TURN_EXTERNAL_IP: "${{ secrets.SSH_HOST }}"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITHUB_REPOSITORY: "${{ github.repository }}"
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: WORKDIR,COMMON_ENV,TURN_EXTERNAL_IP,GITHUB_TOKEN,GITHUB_REPOSITORY
           script: |
-            WORKDIR="${{ secrets.DEPLOY_PATH }}/app"
-            mkdir -p $WORKDIR
-            cd $WORKDIR
+            set -eu
+            if [ ! -d "$WORKDIR/.git" ]; then
+              git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$WORKDIR"
+            fi
 
-            echo "${{ secrets.COMMON_ENV }}" > .env
-            echo "TURN_EXTERNAL_IP=${{ secrets.SSH_HOST }}" >> .env
+            cd "$WORKDIR"
+            git pull --ff-only
+            printf '%s\nTURN_EXTERNAL_IP=%s\n' "$COMMON_ENV" "$TURN_EXTERNAL_IP" > .env
 
-      - name: Copy Infrastructure Files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "infrastructure/docker/docker-compose.infra.yml,infrastructure/docker/postgres/init/**"
-          target: "${{ secrets.DEPLOY_PATH }}/app"
-          strip_components: 2
-
-      - name: Docker Up
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}/app
-
-            sudo docker network inspect nektokz-network >/dev/null 2>&1 || sudo docker network create nektokz-network
-            sudo docker compose -f docker-compose.infra.yml up -d
+            docker network inspect nektokz-network >/dev/null 2>&1 || docker network create nektokz-network
+            docker compose -f infrastructure/docker/docker-compose.infra.yml up -d

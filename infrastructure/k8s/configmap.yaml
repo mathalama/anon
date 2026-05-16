@@ -6,6 +6,8 @@ metadata:
 data:
   APP_ENV: "production"
   LOG_LEVEL: "info"
+  ALLOWED_ORIGINS: "REPLACE_WITH_PRODUCTION_ORIGINS"
+  DEV_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
   USER_SERVICE_URL: "http://user-service:8081"
   MATCHMAKING_SERVICE_URL: "http://matchmaking-service:8082"
   CHAT_SERVICE_URL: "http://chat-service:8083"

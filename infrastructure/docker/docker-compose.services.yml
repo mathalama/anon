@@ -1,6 +1,6 @@
 services:
   api-gateway:
-    image: ${API_GATEWAY_IMAGE:-ghcr.io/mathalama/api-gateway:latest}
+    image: ${API_GATEWAY_IMAGE:-api-gateway:latest}
     build:
       context: ../../
       dockerfile: services/api-gateway/Dockerfile
@@ -32,7 +32,7 @@ services:
       - nektokz-network
 
   user-service:
-    image: ${USER_SERVICE_IMAGE:-ghcr.io/mathalama/user-service:latest}
+    image: ${USER_SERVICE_IMAGE:-user-service:latest}
     build:
       context: ../../
       dockerfile: services/user-service/Dockerfile
@@ -58,7 +58,7 @@ services:
       - nektokz-network
 
   matchmaking-service:
-    image: ${MATCHMAKING_SERVICE_IMAGE:-ghcr.io/mathalama/matchmaking-service:latest}
+    image: ${MATCHMAKING_SERVICE_IMAGE:-matchmaking-service:latest}
     build:
       context: ../../
       dockerfile: services/matchmaking-service/Dockerfile
@@ -84,7 +84,7 @@ services:
       - nektokz-network
 
   chat-service:
-    image: ${CHAT_SERVICE_IMAGE:-ghcr.io/mathalama/chat-service:latest}
+    image: ${CHAT_SERVICE_IMAGE:-chat-service:latest}
     build:
       context: ../../
       dockerfile: services/chat-service/Dockerfile
@@ -110,7 +110,7 @@ services:
       - nektokz-network
 
   moderation-service:
-    image: ${MODERATION_SERVICE_IMAGE:-ghcr.io/mathalama/moderation-service:latest}
+    image: ${MODERATION_SERVICE_IMAGE:-moderation-service:latest}
     build:
       context: ../../
       dockerfile: services/moderation-service/Dockerfile
@@ -137,7 +137,7 @@ services:
       - nektokz-network
 
   notification-service:
-    image: ${NOTIFICATION_SERVICE_IMAGE:-ghcr.io/mathalama/notification-service:latest}
+    image: ${NOTIFICATION_SERVICE_IMAGE:-notification-service:latest}
     build:
       context: ../../
       dockerfile: services/notification-service/Dockerfile

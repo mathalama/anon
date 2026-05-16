@@ -5,19 +5,24 @@ on:
     branches: ["prod"]
     paths:
       - "services/matchmaking-service/**"
-      - "infrastructure/docker/docker-compose.services.yml"
+      - "infrastructure/k8s/matchmaking-service.yaml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+
+concurrency:
+  group: deploy-matchmaking-service
+  cancel-in-progress: true
 
 jobs:
   run-deploy:
-    uses: ./.github/workflows/deploy-template.yml
+    uses: ./.github/workflows/deploy-k8s-template.yml
     with:
-      service_folder: "matchmaking-service"
-      image_name: "matchmaking-service"
-      compose_service: "matchmaking-service"
-      env_image_var: "MATCHMAKING_SERVICE_IMAGE"
+      service_name: "matchmaking-service"
+      build_context: "."
+      dockerfile: "services/matchmaking-service/Dockerfile"
+      manifest_path: "infrastructure/k8s/matchmaking-service.yaml"
+      deployment_name: "matchmaking-service"
+      namespace: "sumdyk"
     secrets: inherit

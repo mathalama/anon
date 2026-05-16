@@ -51,17 +51,6 @@ func (r *InMemoryUserRepository) GetByDeviceID(ctx context.Context, deviceID str
 	return nil, errors.New("user not found")
 }
 
-func (r *InMemoryUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	for _, u := range r.users {
-		if u.Email == email {
-			return u, nil
-		}
-	}
-	return nil, errors.New("user not found")
-}
-
 func (r *InMemoryUserRepository) Update(ctx context.Context, user *domain.User) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

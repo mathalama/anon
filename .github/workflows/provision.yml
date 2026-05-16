@@ -20,13 +20,23 @@ jobs:
       - name: Install Ansible
         run: pip install --quiet ansible
 
-      - name: Setup SSH agent
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
+      - name: Write SSH private key
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${SSH_KEY}" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "Key lines: $(wc -l < ~/.ssh/deploy_key)"
+          head -1 ~/.ssh/deploy_key
+          tail -1 ~/.ssh/deploy_key
+          ssh-keygen -l -f ~/.ssh/deploy_key
 
       - name: Add server to known hosts
         run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection
+        run: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -v ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "echo SSH OK" 2>&1 | tail -30
 
       - name: Write Ansible secrets
         run: |
@@ -52,6 +62,7 @@ jobs:
           ansible-playbook
           -i infrastructure/ansible/inventory.ini
           infrastructure/ansible/playbook.yml
+          --private-key ~/.ssh/deploy_key
           --tags "base,docker,security"
         env:
           ANSIBLE_HOST_KEY_CHECKING: "False"

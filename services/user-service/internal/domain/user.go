@@ -6,14 +6,12 @@ import (
 )
 
 type User struct {
-	ID           string    `json:"id"`
-	DeviceID     string    `json:"device_id,omitempty"`
-	Email        string    `json:"email,omitempty"`
-	PasswordHash string    `json:"-"`
-	Gender       string    `json:"gender"`
-	Interests    []string  `json:"interests"`
-	IsAnonymous  bool      `json:"is_anonymous"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	DeviceID    string    `json:"device_id,omitempty"`
+	Gender      string    `json:"gender"`
+	Interests   []string  `json:"interests"`
+	IsAnonymous bool      `json:"is_anonymous"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Ban struct {
@@ -29,17 +27,13 @@ type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	GetByID(ctx context.Context, id string) (*User, error)
 	GetByDeviceID(ctx context.Context, deviceID string) (*User, error)
-	GetByEmail(ctx context.Context, email string) (*User, error)
 	Update(ctx context.Context, user *User) error
-	
+
 	CreateBan(ctx context.Context, ban *Ban) error
 	GetActiveBan(ctx context.Context, userID string) (*Ban, error)
 }
-
 type UserUsecase interface {
 	CreateAnonymous(ctx context.Context, deviceID string) (string, string, error) // Returns access, refresh
-	Register(ctx context.Context, email, password string) error
-	Login(ctx context.Context, email, password string) (string, string, error)
 	Refresh(ctx context.Context, refreshToken string) (string, string, error)
 	GetMe(ctx context.Context, userID string) (*User, error)
 	UpdateMe(ctx context.Context, userID string, gender string, interests []string) error

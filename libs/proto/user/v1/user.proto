@@ -10,9 +10,6 @@ service UserService {
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc IsBanned(IsBannedRequest) returns (IsBannedResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
-  
-  rpc Login(LoginRequest) returns (AuthResponse);
-  rpc Register(RegisterRequest) returns (AuthResponse);
 }
 
 message GetUserRequest {
@@ -21,7 +18,6 @@ message GetUserRequest {
 
 message GetUserResponse {
   string id = 1;
-  string username = 2;
   string gender = 3;
   bool is_banned = 4;
 }
@@ -42,16 +38,6 @@ message UpdateProfileRequest {
 
 message UpdateProfileResponse {
   bool success = 1;
-}
-
-message LoginRequest {
-  string email = 1;
-  string password = 2;
-}
-
-message RegisterRequest {
-  string email = 1;
-  string password = 2;
 }
 
 message AuthResponse {

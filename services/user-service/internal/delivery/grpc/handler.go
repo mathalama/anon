@@ -2,8 +2,9 @@ package grpc
 
 import (
 	"context"
-	"github.com/mathalama/nektokz/user-service/internal/domain"
+
 	pb "github.com/mathalama/nektokz/proto/user/v1"
+	"github.com/mathalama/nektokz/user-service/internal/domain"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -23,9 +24,8 @@ func (h *UserHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.
 		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
 	}
 	return &pb.GetUserResponse{
-		Id:       user.ID,
-		Username: user.Email, // or some other display name
-		Gender:   user.Gender,
+		Id:     user.ID,
+		Gender: user.Gender,
 	}, nil
 }
 
@@ -43,22 +43,4 @@ func (h *UserHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRe
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}
 	return &pb.UpdateProfileResponse{Success: true}, nil
-}
-
-func (h *UserHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.AuthResponse, error) {
-	access, refresh, err := h.uc.Login(ctx, req.Email, req.Password)
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "login failed: %v", err)
-	}
-	return &pb.AuthResponse{AccessToken: access, RefreshToken: refresh}, nil
-}
-
-func (h *UserHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.AuthResponse, error) {
-	err := h.uc.Register(ctx, req.Email, req.Password)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "registration failed: %v", err)
-	}
-	// Note: Register in usecase doesn't return tokens yet, user should login after.
-	// But let's align with proto if needed.
-	return &pb.AuthResponse{AccessToken: "", RefreshToken: ""}, nil
 }

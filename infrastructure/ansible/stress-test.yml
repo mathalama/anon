@@ -1,6 +1,7 @@
 ---
 - name: Advanced SRE Capacity Analysis and Self-Healing Test
   hosts: all
+  become: yes
   vars:
     target_url: "http://localhost:8080/api/v1"
     load_levels:
@@ -27,7 +28,7 @@
 
     - name: 4. Display Analysis Summary
       debug:
-        msg: 
+        msg:
           - "--- CAPACITY ANALYSIS REPORT ---"
           - "Level: {{ item.item.name }}"
           - "Requests/sec: {{ item.stdout | regex_search('Requests per second:.*') | default('FAILED') }}"

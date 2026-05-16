@@ -41,15 +41,15 @@ db_user: "{{ lookup('env', 'DB_USER') | default('mathalama', true) }}"
 
 # --- Frontend ---
 # Задаётся через ALLOWED_ORIGINS в .env / GitHub Secret COMMON_ENV
-allowed_origins: "{{ lookup('env', 'ALLOWED_ORIGINS') | default('https://yourdomain.com') }}"
+allowed_origins: "{{ lookup('env', 'ALLOWED_ORIGINS') | default('https://yourdomain.com', true) }}"
 dev_allowed_origins: "http://localhost:3000,http://127.0.0.1:3000"
-next_public_api_url: "{{ lookup('env', 'NEXT_PUBLIC_API_URL') | default('https://api.yourdomain.com/api/v1') }}"
-next_public_ws_url: "{{ lookup('env', 'NEXT_PUBLIC_WS_URL') | default('wss://api.yourdomain.com/ws') }}"
+next_public_api_url: "{{ lookup('env', 'NEXT_PUBLIC_API_URL') | default('https://api.yourdomain.com/api/v1', true) }}"
+next_public_ws_url: "{{ lookup('env', 'NEXT_PUBLIC_WS_URL') | default('wss://api.yourdomain.com/ws', true) }}"
 
 # --- Coturn ---
-turn_user: "{{ lookup('env', 'TURN_USER') | default('nektokz') }}"
-turn_external_ip: "{{ lookup('env', 'TURN_EXTERNAL_IP') | default('127.0.0.1') }}"
-turn_realm: "{{ lookup('env', 'TURN_REALM') | default('nektokz.kz') }}"
+turn_user: "{{ lookup('env', 'TURN_USER') | default('nektokz', true) }}"
+turn_external_ip: "{{ lookup('env', 'TURN_EXTERNAL_IP') | default('127.0.0.1', true) }}"
+turn_realm: "{{ lookup('env', 'TURN_REALM') | default('nektokz.kz', true) }}"
 turn_port: 3478
 turn_tls_port: 5349
 

@@ -49,7 +49,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(gwMiddleware.Tracing("api-gateway"))
+	// r.Use(gwMiddleware.Tracing("api-gateway"))
 	r.Use(gwMiddleware.Metrics)
 
 	// Security Headers

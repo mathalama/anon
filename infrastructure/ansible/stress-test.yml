@@ -6,9 +6,9 @@
     target_url: "{{ lookup('env', 'TARGET_URL') | default('', true) }}"
     run_self_healing_test: "{{ lookup('env', 'RUN_SELF_HEALING_TEST') | default('false', true) | bool }}"
     load_levels:
-      - { name: "low", reqs: 200, conc: 10 }
-      - { name: "medium", reqs: 800, conc: 25 }
-      - { name: "heavy", reqs: 2000, conc: 50 }
+      - { name: "low", reqs: 1000, conc: 10 }
+      - { name: "medium", reqs: 2000, conc: 25 }
+      - { name: "heavy", reqs: 10000, conc: 50 }
 
   tasks:
     - name: Ensure target_url is provided

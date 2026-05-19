@@ -16,7 +16,14 @@ spec:
       containers:
       - name: frontend
         image: __IMAGE__
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
         ports:
         - containerPort: 3000
         env:

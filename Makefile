@@ -1,6 +1,6 @@
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation
 .PHONY: build test lint migrate help up down ps logs migrate-all migrate-user migrate-chat migrate-moderation build-check logs-infra logs-services coturn-status
-.PHONY: up-build up-services-build rebuild-services
+.PHONY: up-build up-services-build rebuild-services deploy
 
 SERVICE_PATTERNS=./services/api-gateway/... ./services/user-service/... ./services/matchmaking-service/... ./services/chat-service/... ./services/moderation-service/... ./services/notification-service/...
 
@@ -23,6 +23,7 @@ help:
 	@echo "  ps      - Show containers"
 	@echo "  logs    - Tail logs"
 	@echo "  lint    - Run linter (placeholder)"
+	@echo "  deploy  - Apply Kubernetes manifests and wait for rollout"
 	@echo "  migrate - Run all migrations"
 	@echo "  migrate-user - Run user-service migrations"
 	@echo "  migrate-chat - Run chat-service migrations"
@@ -100,3 +101,6 @@ migrate: migrate-all
  
 swagger:
 	swag init -g cmd/main.go -d ./services/api-gateway --output ./services/api-gateway/docs
+
+deploy:
+	bash scripts/deploy-k8s.sh

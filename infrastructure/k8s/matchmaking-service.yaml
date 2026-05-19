@@ -16,7 +16,14 @@ spec:
       containers:
       - name: matchmaking-service
         image: __IMAGE__
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
         ports:
         - containerPort: 8082
         env:

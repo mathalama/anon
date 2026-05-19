@@ -16,12 +16,24 @@ spec:
       containers:
       - name: moderation-service
         image: __IMAGE__
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
         ports:
         - containerPort: 8084
         env:
         - name: PORT
           value: "8084"
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: sumdyk-secrets
+              key: MODERATION_DB_URL
         envFrom:
         - configMapRef:
             name: sumdyk-config

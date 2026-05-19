@@ -16,12 +16,24 @@ spec:
       containers:
       - name: chat-service
         image: __IMAGE__
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
         ports:
         - containerPort: 8083
         env:
         - name: PORT
           value: "8083"
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: sumdyk-secrets
+              key: CHAT_DB_URL
         envFrom:
         - configMapRef:
             name: sumdyk-config

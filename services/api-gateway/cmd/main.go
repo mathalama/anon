@@ -95,13 +95,13 @@ func main() {
 	r.Use(gwMiddleware.Auth(cfg.JWTSecret))
 
 	// Rate limiting (Redis): 600 req/min anon, 1000 req/min auth
-	rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 600, 1000)
+	// rl, err := gwMiddleware.NewRedisRateLimiter(cfg.RedisURL, 600, 1000)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to init redis rate limiter, falling back to in-memory")
-		r.Use(gwMiddleware.InMemoryRateLimiter(100))
+		// r.Use(gwMiddleware.InMemoryRateLimiter(100))
 	} else {
-		defer rl.Close()
-		r.Use(rl.Middleware())
+		// defer rl.Close()
+		// r.Use(rl.Middleware())
 	}
 
 	// Setup Proxy

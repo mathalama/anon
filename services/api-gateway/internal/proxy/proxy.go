@@ -1,12 +1,13 @@
 package proxy
 
 import (
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Proxy struct {
@@ -30,9 +31,9 @@ func (p *Proxy) AddTarget(pathPrefix, targetURL string) error {
 
 	// Configure custom transport for high concurrency
 	customTransport := http.DefaultTransport.(*http.Transport).Clone()
-	customTransport.MaxIdleConns = 1000
-	customTransport.MaxIdleConnsPerHost = 1000
-	customTransport.MaxConnsPerHost = 1000
+	customTransport.MaxIdleConns = 10000
+	customTransport.MaxIdleConnsPerHost = 10000
+	customTransport.MaxConnsPerHost = 10000
 	customTransport.IdleConnTimeout = 90 * time.Second
 	proxy.Transport = customTransport
 

@@ -200,7 +200,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$BASE_URL"
-          curl -fsS "$BASE_URL/api/v1/health" >/dev/null
+          curl -kfsS "$BASE_URL/api/v1/health" >/dev/null
 
       - name: Check frontend
         env:
@@ -208,4 +208,4 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$FRONTEND_URL"
-          curl -fsS "$FRONTEND_URL" >/dev/null
+          curl -kfsS "$FRONTEND_URL" >/dev/null

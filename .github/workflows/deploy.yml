@@ -23,9 +23,33 @@ jobs:
         with:
           go-version: "1.25.0"
           cache: true
+          cache-dependency-path: |
+            go.work.sum
+            libs/proto/go.sum
+            libs/shared/go.sum
+            services/api-gateway/go.sum
+            services/chat-service/go.sum
+            services/matchmaking-service/go.sum
+            services/moderation-service/go.sum
+            services/notification-service/go.sum
+            services/user-service/go.sum
 
       - name: Run Go tests
-        run: go test ./...
+        run: |
+          set -euo pipefail
+          for dir in \
+            libs/proto \
+            libs/shared \
+            services/api-gateway \
+            services/chat-service \
+            services/matchmaking-service \
+            services/moderation-service \
+            services/notification-service \
+            services/user-service
+          do
+            echo "Testing ${dir}"
+            (cd "${dir}" && go test ./...)
+          done
 
       - name: Set up Node
         uses: actions/setup-node@v4

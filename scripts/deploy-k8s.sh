@@ -120,7 +120,7 @@ done
 
 echo "Waiting for rollouts..."
 for deployment in "${deployments[@]}"; do
-  kubectl_cmd -n "${NAMESPACE}" rollout status "deployment/${deployment}" --timeout=180s
+  kubectl_cmd -n "${NAMESPACE}" rollout status "deployment/${deployment}" --timeout=600s
 done
 
 echo "Deployment completed successfully."

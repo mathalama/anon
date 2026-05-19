@@ -26,6 +26,10 @@ cleanup() {
 
 trap cleanup EXIT
 
+kubectl_cmd() {
+  sudo k3s kubectl "$@"
+}
+
 image_for() {
   local name="$1"
   printf '%s/%s/%s:%s' "${REGISTRY}" "${IMAGE_NAMESPACE}" "${name}" "${IMAGE_TAG}"
@@ -40,18 +44,18 @@ render_manifest() {
 }
 
 echo "Applying namespace and shared resources..."
-kubectl apply -f "${ROOT_DIR}/infrastructure/k8s/namespace.yaml"
+kubectl_cmd apply -f "${ROOT_DIR}/infrastructure/k8s/namespace.yaml"
 
 if [ -n "${GHCR_USERNAME}" ] && [ -n "${GHCR_TOKEN}" ]; then
-  kubectl create secret docker-registry ghcr-creds \
+  kubectl_cmd create secret docker-registry ghcr-creds \
     -n "${NAMESPACE}" \
     --docker-server="${REGISTRY}" \
     --docker-username="${GHCR_USERNAME}" \
     --docker-password="${GHCR_TOKEN}" \
     --docker-email="github-actions@users.noreply.github.com" \
-    --dry-run=client -o yaml | kubectl apply -f -
+    --dry-run=client -o yaml | kubectl_cmd apply -f -
 
-  kubectl patch serviceaccount default \
+  kubectl_cmd patch serviceaccount default \
     -n "${NAMESPACE}" \
     --type=merge \
     -p '{"imagePullSecrets":[{"name":"ghcr-creds"}]}'
@@ -67,7 +71,7 @@ if [ -z "${JWT_SECRET}" ] || [ -z "${INTERNAL_TOKEN}" ] || [ -z "${USER_DB_URL}"
   exit 1
 fi
 
-kubectl create configmap sumdyk-config \
+kubectl_cmd create configmap sumdyk-config \
   -n "${NAMESPACE}" \
   --from-literal=APP_ENV=production \
   --from-literal=LOG_LEVEL=info \
@@ -78,9 +82,9 @@ kubectl create configmap sumdyk-config \
   --from-literal=CHAT_SERVICE_URL="http://chat-service:8083" \
   --from-literal=MODERATION_SERVICE_URL="http://moderation-service:8084" \
   --from-literal=NOTIFICATION_SERVICE_URL="http://notification-service:8085" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | kubectl_cmd apply -f -
 
-kubectl create secret generic sumdyk-secrets \
+kubectl_cmd create secret generic sumdyk-secrets \
   -n "${NAMESPACE}" \
   --from-literal=JWT_SECRET="${JWT_SECRET}" \
   --from-literal=INTERNAL_TOKEN="${INTERNAL_TOKEN}" \
@@ -88,7 +92,7 @@ kubectl create secret generic sumdyk-secrets \
   --from-literal=CHAT_DB_URL="${CHAT_DB_URL}" \
   --from-literal=MODERATION_DB_URL="${MODERATION_DB_URL}" \
   --from-literal=REDIS_URL="${REDIS_URL}" \
-  --dry-run=client -o yaml | kubectl apply -f -
+  --dry-run=client -o yaml | kubectl_cmd apply -f -
 
 declare -a deployments=(
   "api-gateway"
@@ -107,12 +111,12 @@ for deployment in "${deployments[@]}"; do
 
   echo "Applying ${deployment} -> ${image}"
   render_manifest "${src}" "${dst}" "${image}"
-  kubectl apply -f "${dst}"
+  kubectl_cmd apply -f "${dst}"
 done
 
 echo "Waiting for rollouts..."
 for deployment in "${deployments[@]}"; do
-  kubectl -n "${NAMESPACE}" rollout status "deployment/${deployment}" --timeout=180s
+  kubectl_cmd -n "${NAMESPACE}" rollout status "deployment/${deployment}" --timeout=180s
 done
 
 echo "Deployment completed successfully."

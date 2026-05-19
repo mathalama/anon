@@ -98,6 +98,8 @@ kubectl_cmd create secret generic sumdyk-secrets \
   --from-literal=REDIS_URL="${REDIS_URL}" \
   --dry-run=client -o yaml | kubectl_cmd apply -f -
 
+kubectl_cmd apply -f "${ROOT_DIR}/infrastructure/k8s/ingress.yaml"
+
 declare -a deployments=(
   "api-gateway"
   "user-service"

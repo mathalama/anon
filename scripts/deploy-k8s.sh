@@ -44,6 +44,10 @@ render_manifest() {
 }
 
 echo "Applying namespace and shared resources..."
+
+sudo ufw allow 5432/tcp
+sudo ufw allow 6379/tcp
+
 kubectl_cmd apply -f "${ROOT_DIR}/infrastructure/k8s/namespace.yaml"
 
 if [ -n "${GHCR_USERNAME}" ] && [ -n "${GHCR_TOKEN}" ]; then

@@ -1,0 +1,66 @@
+---
+- name: Ensure infrastructure directory exists on server
+  file:
+    path: "{{ project_root }}/infrastructure/docker/{{ item }}"
+    state: directory
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0755'
+  loop:
+    - ""
+    - "postgres/init"
+
+- name: Copy docker-compose files to server
+  copy:
+    src: "../../../docker/"
+    dest: "{{ project_root }}/infrastructure/docker/"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0644'
+
+- name: Copy prometheus config to server
+  copy:
+    src: "../../../monitoring/prometheus/"
+    dest: "{{ project_root }}/infrastructure/monitoring/prometheus/"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0644'
+
+- name: Copy loki and promtail config to server
+  copy:
+    src: "../../../monitoring/{{ item }}/"
+    dest: "{{ project_root }}/infrastructure/monitoring/{{ item }}/"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0644'
+  loop:
+    - loki
+    - promtail
+    - grafana
+
+- name: Generate .env file for Docker Compose
+  template:
+    src: .env.j2
+    dest: "{{ project_root }}/infrastructure/docker/.env"
+    owner: "{{ deploy_user }}"
+    group: "{{ deploy_user }}"
+    mode: '0600'
+
+- name: Ensure Docker network nektokz-network exists
+  docker_network:
+    name: nektokz-network
+    state: present
+
+- name: Start Database and Base Infra Services (Postgres, Redis, Turn)
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_root }}/infrastructure/docker"
+    files:
+      - docker-compose.infra.yml
+    state: present
+
+- name: Start Monitoring Stack (Prometheus, Grafana, Loki, etc)
+  community.docker.docker_compose_v2:
+    project_src: "{{ project_root }}/infrastructure/docker"
+    files:
+      - docker-compose.monitoring.yml
+    state: present

@@ -32,6 +32,7 @@
       }
     - { role: base, tags: ["base", "setup"] }
     - { role: docker, tags: ["docker", "setup"] }
+    - { role: core-services, tags: ["core", "database", "monitoring"] }
     - { role: k3s, tags: ["k3s", "setup"] }
     - { role: security, tags: ["security", "setup"] }
     # role: app — намеренно не включён в плейбук.

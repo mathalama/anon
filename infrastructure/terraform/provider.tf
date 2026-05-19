@@ -10,7 +10,6 @@ terraform {
 }
 
 provider "yandex" {
-  token    = var.yc_token
   endpoint = "api.yandexcloud.kz:443"
 
   cloud_id  = var.yc_cloud_id

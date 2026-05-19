@@ -4,8 +4,14 @@
   connection: local
   gather_facts: false
   vars:
-    base_url: "http://localhost:8080"
+    base_url: "{{ lookup('env', 'BASE_URL') | default('', true) }}"
   tasks:
+    - name: Ensure base_url is provided
+      assert:
+        that:
+          - base_url | length > 0
+        fail_msg: "Set BASE_URL to the API gateway base URL before running the smoke test."
+
     - name: Check gateway health
       uri:
         url: "{{ base_url }}/api/v1/health"

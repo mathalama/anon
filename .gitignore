@@ -35,6 +35,8 @@ out/
 *.dylib
 *.test
 *.out
+/main
+**/tmp_chat
 .gocache/
 .gomodcache/
 .gopath/

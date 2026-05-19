@@ -1,4 +1,6 @@
 ---
+- import_tasks: user.yml
+
 - name: Update apt cache and upgrade packages
   apt:
     update_cache: yes
@@ -50,3 +52,15 @@
     value: "{{ swappiness | string }}"
     state: present
     reload: yes
+
+- name: Setup weekly crontab for Docker prune
+  cron:
+    name: "Docker image prune"
+    special_time: weekly
+    job: "docker image prune -a -f"
+
+- name: Setup weekly crontab for K3s prune
+  cron:
+    name: "K3s image prune"
+    special_time: weekly
+    job: "crictl rmi --prune"

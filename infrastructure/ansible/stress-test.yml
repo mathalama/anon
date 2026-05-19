@@ -3,13 +3,19 @@
   hosts: all
   become: yes
   vars:
-    target_url: "http://localhost:8080/api/v1"
+    target_url: "{{ lookup('env', 'TARGET_URL') | default('', true) }}"
     load_levels:
       - { name: "low", reqs: 500, conc: 20 }
       - { name: "medium", reqs: 2000, conc: 50 }
       - { name: "heavy", reqs: 10000, conc: 150 }
 
   tasks:
+    - name: Ensure target_url is provided
+      assert:
+        that:
+          - target_url | length > 0
+        fail_msg: "Set TARGET_URL to the API base URL before running the capacity test."
+
     - name: 2. Capacity Planning - Multi-level Stress Test on API Gateway
       shell: "ab -n {{ item.reqs }} -c {{ item.conc }} -s 30 {{ target_url }}/health"
       register: load_results

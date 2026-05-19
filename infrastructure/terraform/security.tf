@@ -12,6 +12,27 @@ resource "yandex_vpc_security_group" "main_sg" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = var.allowed_udp_ports
+
+    content {
+      protocol       = "UDP"
+      port           = ingress.value
+      v4_cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.udp_port_ranges
+
+    content {
+      protocol       = "UDP"
+      from_port      = ingress.value.from
+      to_port        = ingress.value.to
+      v4_cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
   egress {
     protocol       = "ANY"
     v4_cidr_blocks = ["0.0.0.0/0"]

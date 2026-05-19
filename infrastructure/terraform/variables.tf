@@ -38,9 +38,17 @@ variable "allowed_ports" {
   type = list(number)
 }
 
-variable "yc_token" {
-  type      = string
-  sensitive = true
+variable "allowed_udp_ports" {
+  type    = list(number)
+  default = []
+}
+
+variable "udp_port_ranges" {
+  type = list(object({
+    from = number
+    to   = number
+  }))
+  default = []
 }
 
 variable "ssh_public_key_path" {

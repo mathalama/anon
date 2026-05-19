@@ -1,9 +1,0 @@
-name: Deprecated Compose Deploy Template
-on:
-  workflow_call: {}
-
-jobs:
-  deprecated:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "This template is deprecated. Use deploy-k8s-template.yml instead."

@@ -49,6 +49,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+      NEXT_PUBLIC_WS_URL: ${{ secrets.NEXT_PUBLIC_WS_URL }}
     strategy:
       fail-fast: false
       matrix:
@@ -56,33 +59,24 @@ jobs:
           - name: api-gateway
             context: .
             dockerfile: services/api-gateway/Dockerfile
-            build-args: ""
           - name: user-service
             context: .
             dockerfile: services/user-service/Dockerfile
-            build-args: ""
           - name: matchmaking-service
             context: .
             dockerfile: services/matchmaking-service/Dockerfile
-            build-args: ""
           - name: chat-service
             context: .
             dockerfile: services/chat-service/Dockerfile
-            build-args: ""
           - name: moderation-service
             context: .
             dockerfile: services/moderation-service/Dockerfile
-            build-args: ""
           - name: notification-service
             context: .
             dockerfile: services/notification-service/Dockerfile
-            build-args: ""
           - name: frontend
             context: apps/web
             dockerfile: apps/web/Dockerfile
-            build-args: |
-              NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
-              NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,7 +91,8 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push ${{ matrix.name }}
+      - name: Build and push frontend
+        if: matrix.name == 'frontend'
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -106,7 +101,22 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:prod
-          build-args: ${{ matrix.build-args }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ env.NEXT_PUBLIC_WS_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push services
+        if: matrix.name != 'frontend'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.name }}:prod
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

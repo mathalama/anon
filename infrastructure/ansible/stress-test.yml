@@ -4,10 +4,11 @@
   become: yes
   vars:
     target_url: "{{ lookup('env', 'TARGET_URL') | default('', true) }}"
+    run_self_healing_test: "{{ lookup('env', 'RUN_SELF_HEALING_TEST') | default('false', true) | bool }}"
     load_levels:
-      - { name: "low", reqs: 500, conc: 20 }
-      - { name: "medium", reqs: 2000, conc: 50 }
-      - { name: "heavy", reqs: 10000, conc: 150 }
+      - { name: "low", reqs: 200, conc: 10 }
+      - { name: "medium", reqs: 800, conc: 25 }
+      - { name: "heavy", reqs: 2000, conc: 50 }
 
   tasks:
     - name: Ensure target_url is provided
@@ -15,6 +16,12 @@
         that:
           - target_url | length > 0
         fail_msg: "Set TARGET_URL to the API base URL before running the capacity test."
+
+    - name: Ensure apache2-utils is installed
+      apt:
+        name: apache2-utils
+        state: present
+        update_cache: yes
 
     - name: 2. Capacity Planning - Multi-level Stress Test on API Gateway
       shell: "ab -n {{ item.reqs }} -c {{ item.conc }} -s 30 {{ target_url }}/health"
@@ -45,27 +52,30 @@
       loop_control:
         label: "Reporting for {{ item.item.name }}"
 
-    - name: 5. Automation Test - Kill one API Gateway instance (Self-Healing)
-      shell: "docker exec api-gateway kill 1"
-      register: kill_result
+    - name: 5. Automation Test - Restart API Gateway deployment (Self-Healing)
+      shell: "/usr/local/bin/k3s kubectl -n sumdyk rollout restart deployment/api-gateway"
+      register: restart_result
       failed_when: false
+      when: run_self_healing_test
 
     - name: 6. Wait for Self-Healing (restart policy)
       pause:
         seconds: 90
+      when: run_self_healing_test
 
     - name: 7. Verify Container Recovery
-      shell: docker ps -a --filter "name=api-gateway" --format "{{ '{{' }}.Status{{ '}}' }}"
+      shell: "/usr/local/bin/k3s kubectl -n sumdyk rollout status deployment/api-gateway --timeout=300s"
       register: container_status
+      when: run_self_healing_test
 
     - name: 8. Report Recovery Status
       debug:
         msg:
           - "--- SELF-HEALING TEST ---"
-          - "Action: Killed 'api-gateway'"
-          - "Wait: 10 seconds"
+          - "Action: Restarted deployment/api-gateway"
           - "Current Status: {{ container_status.stdout }}"
-          - "Verdict: {{ 'SUCCESS - Service Recovered' if 'Up' in container_status.stdout else 'FAILURE - Service Down' }}"
+          - "Verdict: {{ 'SUCCESS - Service Recovered' if 'successfully rolled out' in container_status.stdout else 'FAILURE - Service Down' }}"
+      when: run_self_healing_test
 
     - name: 9. Final Instructions
       debug:

@@ -68,7 +68,7 @@ services:
           memory: 32M
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:2.9.10
     container_name: loki
     restart: unless-stopped
     volumes:
@@ -89,7 +89,7 @@ services:
           memory: 64M
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:2.9.10
     container_name: promtail
     restart: unless-stopped
     volumes:

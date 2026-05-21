@@ -12,9 +12,20 @@ IMAGE_TAG="${IMAGE_TAG:-prod}"
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-}"
 JWT_SECRET="${JWT_SECRET:-}"
 INTERNAL_TOKEN="${INTERNAL_TOKEN:-}"
-USER_DB_URL="${USER_DB_URL:-}?pool_max_conns=50&pool_min_conns=10"
-CHAT_DB_URL="${CHAT_DB_URL:-}?pool_max_conns=50&pool_min_conns=10"
-MODERATION_DB_URL="${MODERATION_DB_URL:-}?pool_max_conns=50&pool_min_conns=10"
+append_pool_params() {
+  local url="$1"
+  if [[ -z "$url" ]]; then
+    echo ""
+  elif [[ "$url" == *\?* ]]; then
+    echo "${url}&pool_max_conns=50&pool_min_conns=10"
+  else
+    echo "${url}?pool_max_conns=50&pool_min_conns=10"
+  fi
+}
+
+USER_DB_URL=$(append_pool_params "${USER_DB_URL:-}")
+CHAT_DB_URL=$(append_pool_params "${CHAT_DB_URL:-}")
+MODERATION_DB_URL=$(append_pool_params "${MODERATION_DB_URL:-}")
 REDIS_URL="${REDIS_URL:-}"
 GHCR_USERNAME="${GHCR_USERNAME:-}"
 GHCR_TOKEN="${GHCR_TOKEN:-}"

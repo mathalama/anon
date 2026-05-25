@@ -1,0 +1,432 @@
+services:
+  # ============================================================================
+  #                          DATABASES & INFRASTRUCTURE
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command:
+      [
+        "postgres",
+        "-c",
+        "max_connections=200",
+        "-c",
+        "shared_buffers=128MB",
+        "-c",
+        "effective_cache_size=256MB",
+      ]
+    ports:
+      - "${POSTGRES_BIND_ADDRESS}:${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_BIND_ADDRESS}:${REDIS_PORT}:6379"
+    command:
+      [
+        "redis-server",
+        "--requirepass",
+        "${REDIS_PASSWORD}",
+        "--appendonly",
+        "yes",
+      ]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+
+  coturn:
+    image: coturn/coturn
+    container_name: coturn
+    restart: unless-stopped
+    ports:
+      - "${TURN_PORT}:${TURN_PORT}/udp"
+      - "${TURN_PORT}:${TURN_PORT}/tcp"
+      - "${TURN_TLS_PORT}:${TURN_TLS_PORT}/udp"
+      - "${TURN_TLS_PORT}:${TURN_TLS_PORT}/tcp"
+    environment:
+      TURN_USER: ${TURN_USER}
+      TURN_PASSWORD: ${TURN_PASSWORD}
+      TURN_EXTERNAL_IP: ${TURN_EXTERNAL_IP}
+    command:
+      - turnserver
+      - --log-file=stdout
+      - --external-ip=${TURN_EXTERNAL_IP}
+      - --realm=${TURN_REALM}
+      - --user=${TURN_USER}:${TURN_PASSWORD}
+      - --listening-port=${TURN_PORT}
+      - --tls-listening-port=${TURN_TLS_PORT}
+      - --min-port=${TURN_MIN_PORT}
+      - --max-port=${TURN_MAX_PORT}
+      - --verbose
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+
+  # ============================================================================
+  #                          DATABASE MIGRATIONS PIPELINE
+  # ============================================================================
+  migrate-user:
+    image: migrate/migrate:v4.17.0
+    container_name: migrate-user
+    volumes:
+      - ./services/user-service/migrations:/migrations
+    command:
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/users_db?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nektokz-network
+
+  migrate-chat:
+    image: migrate/migrate:v4.17.0
+    container_name: migrate-chat
+    volumes:
+      - ./services/chat-service/migrations:/migrations
+    command:
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/chat_db?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nektokz-network
+
+  migrate-moderation:
+    image: migrate/migrate:v4.17.0
+    container_name: migrate-moderation
+    volumes:
+      - ./services/moderation-service/migrations:/migrations
+    command:
+      - -path=/migrations
+      - -database=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/moderation_db?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nektokz-network
+
+  # ============================================================================
+  #                          GO BACKEND SERVICES
+  # ============================================================================
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_GATEWAY_BIND_ADDRESS}:${API_GATEWAY_PORT}:${API_GATEWAY_PORT}"
+    environment:
+      APP_ENV: ${APP_ENV}
+      PORT: ${API_GATEWAY_PORT}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      DEV_ALLOWED_ORIGINS: ${DEV_ALLOWED_ORIGINS}
+      USER_SERVICE_URL: http://user-service:${USER_SERVICE_PORT}
+      MATCHMAKING_SERVICE_URL: http://matchmaking-service:${MATCHMAKING_SERVICE_PORT}
+      CHAT_SERVICE_URL: http://chat-service:${CHAT_SERVICE_PORT}
+      MODERATION_SERVICE_URL: http://moderation-service:${MODERATION_SERVICE_PORT}
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: user-service
+    restart: unless-stopped
+    environment:
+      PORT: ${USER_SERVICE_PORT}
+      GRPC_PORT: ${USER_SERVICE_GRPC_PORT}
+      REPO_DRIVER: ${USER_REPO_DRIVER}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/users_db?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate-user:
+        condition: service_completed_successfully
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+        reservations:
+          cpus: "0.15"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  matchmaking-service:
+    build:
+      context: .
+      dockerfile: services/matchmaking-service/Dockerfile
+    container_name: matchmaking-service
+    restart: unless-stopped
+    environment:
+      PORT: ${MATCHMAKING_SERVICE_PORT}
+      GRPC_PORT: ${MATCHMAKING_SERVICE_GRPC_PORT}
+      REPO_DRIVER: ${MATCHMAKING_REPO_DRIVER}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+      USER_SERVICE_URL: http://user-service:${USER_SERVICE_PORT}
+      USER_SERVICE_GRPC_URL: ${USER_SERVICE_GRPC_URL}
+      CHAT_SERVICE_URL: http://chat-service:${CHAT_SERVICE_PORT}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    depends_on:
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  chat-service:
+    build:
+      context: .
+      dockerfile: services/chat-service/Dockerfile
+    container_name: chat-service
+    restart: unless-stopped
+    environment:
+      PORT: ${CHAT_SERVICE_PORT}
+      GRPC_PORT: ${CHAT_SERVICE_GRPC_PORT}
+      REPO_DRIVER: ${CHAT_REPO_DRIVER}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/chat_db?sslmode=disable
+      MODERATION_SERVICE_URL: http://moderation-service:${MODERATION_SERVICE_PORT}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate-chat:
+        condition: service_completed_successfully
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  moderation-service:
+    build:
+      context: .
+      dockerfile: services/moderation-service/Dockerfile
+    container_name: moderation-service
+    restart: unless-stopped
+    environment:
+      PORT: ${MODERATION_SERVICE_PORT}
+      GRPC_PORT: ${MODERATION_SERVICE_GRPC_PORT}
+      REPO_DRIVER: ${MODERATION_REPO_DRIVER}
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/moderation_db?sslmode=disable
+      USER_SERVICE_URL: http://user-service:${USER_SERVICE_PORT}
+      CHAT_SERVICE_URL: http://chat-service:${CHAT_SERVICE_PORT}
+      NOTIFICATION_SERVICE_URL: http://notification-service:${NOTIFICATION_SERVICE_PORT}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate-moderation:
+        condition: service_completed_successfully
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: notification-service
+    restart: unless-stopped
+    environment:
+      PORT: ${NOTIFICATION_SERVICE_PORT}
+      GRPC_PORT: ${NOTIFICATION_SERVICE_GRPC_PORT}
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+        reservations:
+          cpus: "0.15"
+          memory: 128M
+    networks:
+      - nektokz-network
+
+  # ============================================================================
+  #                          FRONTEND NEXT.JS WEB APP
+  # ============================================================================
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+    container_name: web-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+    depends_on:
+      - api-gateway
+    networks:
+      - nektokz-network
+
+  # ============================================================================
+  #                          MONITORING STACK
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/monitoring/prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    depends_on:
+      - api-gateway
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 512M
+        reservations:
+          cpus: "0.05"
+          memory: 128M
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "${GRAFANA_BIND_ADDRESS}:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - nektokz-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
+    networks:
+      - nektokz-network
+
+# ============================================================================
+#                          NETWORKS & VOLUMES DEFINITION
+# ============================================================================
+networks:
+  nektokz-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

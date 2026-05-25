@@ -4,10 +4,31 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	queueUsersGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "nektokz_matchmaking_queue_users",
+			Help: "Number of users currently in the matchmaking queue.",
+		},
+		[]string{"mode", "my_gender", "target_gender"},
+	)
+
+	roomsCreatedCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "nektokz_matchmaking_rooms_created_total",
+			Help: "Total number of chat rooms created by matchmaking.",
+		},
+		[]string{"mode"},
+	)
 )
 
 type matchUsecase struct {
@@ -71,12 +92,49 @@ func (u *matchUsecase) StartWorker(ctx context.Context) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
+	// Scrape queue sizes for metrics every 2 seconds in the background
+	metricsTicker := time.NewTicker(2 * time.Second)
+	defer metricsTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			u.RunMatching(ctx)
+		case <-metricsTicker.C:
+			u.collectQueueMetrics(ctx)
+		}
+	}
+}
+
+func (u *matchUsecase) collectQueueMetrics(ctx context.Context) {
+	queue, err := u.repo.GetQueue(ctx)
+	if err != nil {
+		return
+	}
+
+	// Reset gauge to ensure stale tags from departed users are cleared
+	queueUsersGauge.Reset()
+
+	counts := make(map[string]int)
+	for _, entry := range queue {
+		mode := entry.Filter.Mode
+		if mode == "" {
+			mode = "text"
+		}
+		g := entry.Filter.Gender
+		if g == "" {
+			g = "any"
+		}
+		labelKey := mode + ":" + entry.Filter.MyGender + ":" + g
+		counts[labelKey]++
+	}
+
+	for key, count := range counts {
+		parts := strings.Split(key, ":")
+		if len(parts) == 3 {
+			queueUsersGauge.WithLabelValues(parts[0], parts[1], parts[2]).Set(float64(count))
 		}
 	}
 }
@@ -146,6 +204,9 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 		// One or both users might have been matched already or canceled
 		return
 	}
+
+	// Increment matchmaking room creations counter
+	roomsCreatedCounter.WithLabelValues(mode).Inc()
 
 	if err := u.chatClient.CreateRoom(ctx, roomID, userA, userB); err != nil {
 		log.Printf("MATCHMAKING: failed to create chat room %s: %v", roomID, err)

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -140,6 +141,16 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	matched := false
+	defer func() {
+		if !matched {
+			log.Info().Str("user", userID).Msg("StatusSSE connection closed while searching, cancelling matchmaking search")
+			if err := h.usecase.Cancel(context.Background(), userID); err != nil {
+				log.Error().Err(err).Str("user", userID).Msg("failed to cancel search on disconnect")
+			}
+		}
+	}()
+
 	// Сначала подписываемся, потом проверяем статус
 	// Так не пропустим матч между двумя вызовами
 	ch, cleanup, err := h.usecase.SubscribeToMatch(r.Context(), userID)
@@ -151,6 +162,7 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 
 	// Проверяем не сматчен ли уже
 	if room, _ := h.usecase.GetStatus(r.Context(), userID); room != nil {
+		matched = true
 		data := map[string]interface{}{
 			"status":         "matched",
 			"room_id":        room.ID,
@@ -176,6 +188,7 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
+			matched = true
 			data := map[string]interface{}{
 				"status":         "matched",
 				"room_id":        match.RoomID,

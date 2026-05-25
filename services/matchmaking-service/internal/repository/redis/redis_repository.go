@@ -126,10 +126,25 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 		return nil, err
 	}
 
-	var allItems []goredis.Z
+	type queueItem struct {
+		userID   string
+		score    float64
+		queueKey string
+	}
+
+	var allItems []queueItem
 	for _, key := range keys {
+		if strings.HasPrefix(key, filtersKeyPref) {
+			continue
+		}
 		items, _ := r.rdb.ZRangeWithScores(ctx, key, 0, -1).Result()
-		allItems = append(allItems, items...)
+		for _, it := range items {
+			allItems = append(allItems, queueItem{
+				userID:   it.Member.(string),
+				score:    it.Score,
+				queueKey: key,
+			})
+		}
 	}
 
 	if len(allItems) == 0 {
@@ -139,33 +154,35 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 	pipe := r.rdb.Pipeline()
 	cmds := make([]*goredis.MapStringStringCmd, len(allItems))
 	for i, it := range allItems {
-		userID := it.Member.(string)
-		cmds[i] = pipe.HGetAll(ctx, filtersKeyPref+userID)
+		cmds[i] = pipe.HGetAll(ctx, filtersKeyPref+it.userID)
 	}
 
 	_, _ = pipe.Exec(ctx)
 
 	out := make([]*domain.QueueEntry, 0, len(allItems))
 	for i, it := range allItems {
-		userID := it.Member.(string)
 		m, err := cmds[i].Result()
-
-		filter := domain.Filter{Gender: "any", Mode: "text"}
-		if err == nil && len(m) > 0 {
-			if s := m["interests"]; s != "" {
-				_ = json.Unmarshal([]byte(s), &filter.Interests)
-			}
-			if g := m["gender"]; g != "" {
-				filter.Gender = g
-			}
-			filter.MyGender = m["my_gender"]
-			filter.Mode = m["mode"]
+		if err != nil || len(m) == 0 {
+			// Lazy cleanup: filter metadata expired (AFK/disconnected)
+			r.rdb.ZRem(ctx, it.queueKey, it.userID)
+			r.rdb.Del(ctx, filtersKeyPref+it.userID)
+			continue
 		}
 
+		filter := domain.Filter{Gender: "any", Mode: "text"}
+		if s := m["interests"]; s != "" {
+			_ = json.Unmarshal([]byte(s), &filter.Interests)
+		}
+		if g := m["gender"]; g != "" {
+			filter.Gender = g
+		}
+		filter.MyGender = m["my_gender"]
+		filter.Mode = m["mode"]
+
 		out = append(out, &domain.QueueEntry{
-			UserID:   userID,
+			UserID:   it.userID,
 			Filter:   filter,
-			JoinedAt: time.Unix(int64(it.Score), 0),
+			JoinedAt: time.Unix(int64(it.score), 0),
 		})
 	}
 	return out, nil
@@ -200,7 +217,23 @@ func (r *RedisMatchRepository) CreateRoom(ctx context.Context, room *domain.Room
 		redis.call("SET", KEYS[1], ARGV[6], "EX", ARGV[5])
 		redis.call("SET", KEYS[2], ARGV[6], "EX", ARGV[5])
 		
-		-- Remove from all possible gender buckets for this mode
+		-- Dynamically clean up specific queues using the users' filters
+		local filterA = redis.call("HMGET", ARGV[7] .. ARGV[1], "my_gender", "gender", "mode")
+		if filterA[1] and filterA[2] and filterA[3] then
+			local qA = "queue:" .. filterA[3] .. ":" .. filterA[1] .. ":" .. filterA[2]
+			redis.call("ZREM", qA, ARGV[1])
+		end
+
+		local filterB = redis.call("HMGET", ARGV[7] .. ARGV[2], "my_gender", "gender", "mode")
+		if filterB[1] and filterB[2] and filterB[3] then
+			local qB = "queue:" .. filterB[3] .. ":" .. filterB[1] .. ":" .. filterB[2]
+			redis.call("ZREM", qB, ARGV[2])
+		end
+
+		-- Fallback/global queue cleanups
+		redis.call("ZREM", "queue:searching", ARGV[1], ARGV[2])
+
+		-- Remove from all possible gender buckets for this mode (defense-in-depth)
 		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:female", ARGV[1], ARGV[2])
 		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:any", ARGV[1], ARGV[2])
 		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:male", ARGV[1], ARGV[2])

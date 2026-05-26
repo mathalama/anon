@@ -101,6 +101,8 @@ func (h *ChatHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		RespondWithError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 		return
 	}
+	ws.RoomsCreated.Inc()
+	ws.ActiveRooms.Inc()
 	w.WriteHeader(http.StatusCreated)
 }
 

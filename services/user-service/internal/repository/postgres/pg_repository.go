@@ -52,7 +52,7 @@ func (r *PGUserRepository) Update(ctx context.Context, user *domain.User) error 
 		return err
 	}
 	if ct.RowsAffected() == 0 {
-		return errors.New("user not found")
+		return domain.ErrUserNotFound
 	}
 	return nil
 }
@@ -91,7 +91,7 @@ func (r *PGUserRepository) getOne(ctx context.Context, q string, arg any) (*doma
 
 	if err := row.Scan(&u.ID, &deviceID, &u.Gender, &u.Interests, &u.IsAnonymous, &u.CreatedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user not found")
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
 	}

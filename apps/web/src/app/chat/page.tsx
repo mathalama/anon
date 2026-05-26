@@ -185,7 +185,7 @@ export default function ChatPage() {
                     msg.sender === 'me' ? 'text-right' : 'text-left',
                   )}
                 >
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(typeof msg.timestamp === 'number' && msg.timestamp > 1e12 ? msg.timestamp : (msg.timestamp || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             </div>

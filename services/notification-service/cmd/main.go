@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,10 +15,19 @@ import (
 	"github.com/mathalama/nektokz/notification-service/internal/usecase"
 	"github.com/mathalama/nektokz/pkg/mq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// Setup logger
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	if cfg.AppEnv == "development" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
+	}
+
 	validateConfig(cfg)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -27,7 +35,7 @@ func main() {
 
 	js, err := mq.NewJetStream(cfg.NATSURL)
 	if err != nil {
-		log.Printf("failed to init NATS JetStream: %v", err)
+		log.Error().Err(err).Msg("failed to init NATS JetStream")
 	} else {
 		defer js.Close()
 		worker := usecase.NewNotificationWorker(js)
@@ -45,16 +53,16 @@ func main() {
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.Handler())
 
-	log.Printf("notification-service starting on port %s", cfg.Port)
+	log.Info().Str("port", cfg.Port).Msg("notification-service starting")
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		log.Fatal().Err(err).Msg("failed to start server")
 	}
 }
 
 func validateConfig(cfg *config.Config) {
 	if cfg.AppEnv != "development" {
 		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
-			log.Fatalf("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+			log.Fatal().Msg("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
 		}
 	}
 }

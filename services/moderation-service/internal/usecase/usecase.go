@@ -3,12 +3,12 @@ package usecase
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mathalama/nektokz/moderation-service/internal/domain"
+	"github.com/rs/zerolog/log"
 )
 
 type moderationUsecase struct {
@@ -77,13 +77,13 @@ func (u *moderationUsecase) CreateReport(ctx context.Context, reporterUserID, re
 
 	if banHours > 0 {
 		if err := u.userCli.Ban(ctx, reportedUserID, "auto-ban: report threshold exceeded", "system", banHours); err != nil {
-			log.Printf("[MODERATION] failed to ban user %s: %v", reportedUserID, err)
+			log.Error().Err(err).Str("user_id", reportedUserID).Msg("failed to ban user")
 		}
 		if err := u.chatCli.Disconnect(ctx, reportedUserID); err != nil {
-			log.Printf("[MODERATION] failed to disconnect user %s: %v", reportedUserID, err)
+			log.Error().Err(err).Str("user_id", reportedUserID).Msg("failed to disconnect user")
 		}
 		if err := u.notif.Notify(ctx, "ban_applied", reportedUserID, map[string]any{"hours": banHours}); err != nil {
-			log.Printf("[MODERATION] failed to notify user %s about ban: %v", reportedUserID, err)
+			log.Error().Err(err).Str("user_id", reportedUserID).Msg("failed to notify user about ban")
 		}
 	}
 

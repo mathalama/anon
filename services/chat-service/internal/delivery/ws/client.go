@@ -81,7 +81,7 @@ func (c *Client) ReadPump() {
 			}
 
 			// Increment message counter
-			wsMessagesTotal.Inc()
+			MessagesProcessed.Inc()
 
 			ts := time.Now().Unix()
 			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{Type: "message", Content: content, Timestamp: ts})
@@ -161,8 +161,17 @@ func (c *Client) endRoom(ctx context.Context) error {
 	if room == nil {
 		return errors.New("room not found")
 	}
+	if room.Status == "ended" {
+		return nil
+	}
 	now := time.Now()
 	room.Status = "ended"
 	room.EndedAt = &now
+
+	// Track call duration & active rooms
+	duration := now.Sub(room.CreatedAt).Seconds()
+	CallDuration.Observe(duration)
+	ActiveRooms.Dec()
+
 	return c.repo.UpdateRoom(ctx, room)
 }

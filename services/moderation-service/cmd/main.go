@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -22,10 +22,19 @@ import (
 	"github.com/mathalama/nektokz/moderation-service/internal/repository/postgres"
 	"github.com/mathalama/nektokz/moderation-service/internal/usecase"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	cfg := config.Load()
+
+	// Setup logger
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	if cfg.AppEnv == "development" {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: "15:04:05"})
+	}
+
 	validateConfig(cfg)
 
 	var repo domain.ReportRepository = memory.New()
@@ -40,16 +49,16 @@ func main() {
 					break
 				}
 			}
-			log.Printf("Waiting for database... (%d/10)", i+1)
+			log.Info().Msgf("Waiting for database... (%d/10)", i+1)
 			time.Sleep(2 * time.Second)
 		}
 		if err != nil {
-			log.Fatalf("failed to init postgres pool after retries: %v", err)
+			log.Fatal().Err(err).Msg("failed to init postgres pool after retries")
 		}
 		defer pool.Close()
 
 		if err := runMigrations(cfg.DBURL); err != nil {
-			log.Printf("Migration warning: %v", err)
+			log.Warn().Err(err).Msg("Migration warning")
 		}
 
 		repo = postgres.NewPGReportRepository(pool)
@@ -69,19 +78,19 @@ func main() {
 	// Prometheus metrics
 	r.Handle("/metrics", promhttp.Handler())
 
-	log.Printf("moderation-service starting on port %s", cfg.Port)
+	log.Info().Str("port", cfg.Port).Msg("moderation-service starting")
 	if err := http.ListenAndServe(":"+cfg.Port, r); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		log.Fatal().Err(err).Msg("failed to start server")
 	}
 }
 
 func validateConfig(cfg *config.Config) {
 	if cfg.AppEnv != "development" {
 		if cfg.InternalToken == "" || cfg.InternalToken == "dev-internal-token" {
-			log.Fatalf("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
+			log.Fatal().Msg("INTERNAL_TOKEN must be set to a strong random value in non-development environments")
 		}
 		if cfg.RepoDriver == "postgres" && strings.Contains(cfg.DBURL, "user:pass@") {
-			log.Fatalf("DB_URL must be set (no default credentials) when REPO_DRIVER=postgres in non-development environments")
+			log.Fatal().Msg("DB_URL must be set (no default credentials) when REPO_DRIVER=postgres in non-development environments")
 		}
 	}
 }

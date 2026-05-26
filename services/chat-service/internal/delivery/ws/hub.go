@@ -14,13 +14,26 @@ import (
 )
 
 var (
-	wsConnectionsTotal = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "ws_connections_total",
-		Help: "Current WebSocket connections",
+	ActiveUsers = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "nektokz_active_users",
+		Help: "Current number of active online users",
 	})
-	wsMessagesTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "ws_messages_total",
-		Help: "Total WebSocket messages processed",
+	ActiveRooms = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "nektokz_active_rooms",
+		Help: "Current number of active chat/voice rooms",
+	})
+	RoomsCreated = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "nektokz_rooms_created_total",
+		Help: "Total number of created rooms",
+	})
+	CallDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "nektokz_call_duration_seconds",
+		Help:    "Duration of voice calls in seconds",
+		Buckets: []float64{10, 30, 60, 180, 300, 600, 1800, 3600},
+	})
+	MessagesProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "nektokz_messages_total",
+		Help: "Total number of messages processed",
 	})
 )
 
@@ -105,7 +118,7 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 			shard.mu.Unlock()
 
 			// Increment metrics
-			wsConnectionsTotal.Inc()
+			ActiveUsers.Inc()
 
 			// Use Redis to track global room occupancy across shards in a goroutine
 			// to avoid blocking the shard's main loop.
@@ -151,7 +164,7 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 			shard.mu.Unlock()
 
 			// Decrement metrics
-			wsConnectionsTotal.Dec()
+			ActiveUsers.Dec()
 
 			if h.rdb != nil {
 				go func(rid, uid string) {

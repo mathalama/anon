@@ -11,3 +11,4 @@ data:
   CHAT_SERVICE_URL: "http://chat-service:8083"
   MODERATION_SERVICE_URL: "http://moderation-service:8084"
   NOTIFICATION_SERVICE_URL: "http://notification-service:8085"
+  NATS_URL: "nats://host.minikube.internal:4222"

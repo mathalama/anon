@@ -428,7 +428,7 @@ services:
   #                          MONITORING STACK
   # ============================================================================
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.4.1
     container_name: prometheus
     restart: always
     volumes:
@@ -455,8 +455,34 @@ services:
           cpus: "0.05"
           memory: 128M
 
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: always
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./infrastructure/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 64M
+        reservations:
+          cpus: "0.02"
+          memory: 32M
+
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.6.0
     container_name: grafana
     restart: always
     ports:
@@ -475,7 +501,7 @@ services:
       - nektokz-network
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.9.1
     container_name: node-exporter
     restart: always
     volumes:
@@ -494,6 +520,80 @@ services:
     networks:
       - nektokz-network
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: always
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - nektokz-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/monitoring/loki/loki-config.yml:/etc/loki/local-config.yml
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yml
+    networks:
+      - nektokz-network
+    environment:
+      - LOKI_CONFIG=/etc/loki/local-config.yml
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - nektokz-network
+    depends_on:
+      - loki
+    environment:
+      - HOSTNAME=nektokz-server
+    deploy:
+      resources:
+        limits:
+          cpus: "0.05"
+          memory: 128M
+        reservations:
+          cpus: "0.02"
+          memory: 64M
+
 # ============================================================================
 #                          NETWORKS & VOLUMES DEFINITION
 # ============================================================================
@@ -506,3 +606,4 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+  loki_data:

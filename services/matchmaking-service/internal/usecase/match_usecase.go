@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/mathalama/nektokz/matchmaking-service/internal/domain"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -52,7 +52,7 @@ func NewMatchUsecase(repo domain.MatchRepository, user domain.UserClient, chat d
 }
 
 func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.Filter) error {
-	log.Printf("MATCHMAKING: Search requested by user %s with mode=%s gender=%s", userID, filter.Mode, filter.Gender)
+	log.Info().Str("user_id", userID).Str("mode", filter.Mode).Str("target_gender", filter.Gender).Msg("MATCHMAKING: Search requested")
 	if filter.Gender == "" {
 		filter.Gender = "any"
 	}
@@ -67,12 +67,12 @@ func (u *matchUsecase) Search(ctx context.Context, userID string, filter domain.
 	}
 
 	if err := u.repo.DeleteRoom(ctx, userID); err != nil {
-		log.Printf("Warning: failed to delete old room for %s: %v", userID, err)
+		log.Warn().Err(err).Str("user_id", userID).Msg("failed to delete old room")
 	}
 
 	// 2. Remove old queue entry first (clears stale mode/filter from previous search)
 	if err := u.repo.RemoveFromQueue(ctx, userID); err != nil {
-		log.Printf("MATCHMAKING: Warning - failed to remove old queue entry for %s: %v", userID, err)
+		log.Warn().Err(err).Str("user_id", userID).Msg("failed to remove old queue entry")
 	}
 
 	// 3. Add fresh entry with new filter
@@ -209,7 +209,7 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 	roomsCreatedCounter.WithLabelValues(mode).Inc()
 
 	if err := u.chatClient.CreateRoom(ctx, roomID, userA, userB); err != nil {
-		log.Printf("MATCHMAKING: failed to create chat room %s: %v", roomID, err)
+		log.Error().Err(err).Str("room_id", roomID).Str("user_a", userA).Str("user_b", userB).Msg("MATCHMAKING: failed to create chat room")
 		_ = u.repo.DeleteRoom(ctx, userA)
 		return
 	}
@@ -219,7 +219,7 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 		_ = u.mq.Publish(ctx, "match.found", room)
 	}
 
-	log.Printf("MATCHMAKING: Match found! %s <-> %s (mode=%s)", userA, userB, mode)
+	log.Info().Str("room_id", roomID).Str("user_a", userA).Str("user_b", userB).Str("mode", mode).Msg("MATCHMAKING: Match found!")
 
 	_ = u.repo.PublishMatch(ctx, userA, &domain.MatchFound{
 		RoomID:        roomID,

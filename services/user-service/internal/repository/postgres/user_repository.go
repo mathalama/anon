@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -35,7 +34,7 @@ func (r *InMemoryUserRepository) GetByID(ctx context.Context, id string) (*domai
 	defer r.mu.RUnlock()
 	user, ok := r.users[id]
 	if !ok {
-		return nil, errors.New("user not found")
+		return nil, domain.ErrUserNotFound
 	}
 	return user, nil
 }
@@ -48,7 +47,7 @@ func (r *InMemoryUserRepository) GetByDeviceID(ctx context.Context, deviceID str
 			return u, nil
 		}
 	}
-	return nil, errors.New("user not found")
+	return nil, domain.ErrUserNotFound
 }
 
 func (r *InMemoryUserRepository) Update(ctx context.Context, user *domain.User) error {

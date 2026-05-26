@@ -70,13 +70,17 @@ export function VoiceCallUI({
         <button
           onClick={toggleMute}
           className={clsx(
-            "p-6 rounded-2xl border transition-all",
+            "p-6 rounded-2xl border transition-all duration-200 active:scale-95",
             isMuted 
-              ? "bg-red-500/10 border-red-500/20 text-red-500" 
-              : "bg-zinc-900 border-white/5 text-zinc-400 hover:text-white"
+              ? "bg-red-500/10 border-red-500/20 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.15)]" 
+              : "bg-zinc-900 border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800"
           )}
         >
-          {isMuted ? <MicOff className="w-8 h-8" /> : <Mic className="w-8 h-8" />}
+          {isMuted ? (
+            <MicOff className="w-8 h-8 transition-transform duration-300 scale-110" />
+          ) : (
+            <Mic className="w-8 h-8 transition-transform duration-300" />
+          )}
         </button>
 
         <button

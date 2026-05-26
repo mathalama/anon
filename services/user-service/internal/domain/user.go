@@ -2,7 +2,13 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+// Sentinel errors for the user domain.
+var (
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type User struct {

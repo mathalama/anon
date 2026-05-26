@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ func NewUserUsecase(repo domain.UserRepository, tm *TokenManager, rdb *goredis.C
 func (u *userUsecase) CreateAnonymous(ctx context.Context, deviceID string) (string, string, error) {
 	user, err := u.repo.GetByDeviceID(ctx, deviceID)
 	if err != nil {
-		if err.Error() != "user not found" {
+		if !errors.Is(err, domain.ErrUserNotFound) {
 			return "", "", err
 		}
 		user = &domain.User{

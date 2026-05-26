@@ -82,12 +82,17 @@ uploads/
 **/id_rsa.pub
 **/service-account-key.json
 **/k8s/secret.yaml
+**/monitoring/alertmanager/alertmanager.yml
 
 # --- Playwright ---
 playwright-report/
 **/playwright-report/
 test-results/
 **/test-results/
+
+# --- Temp Build Artifacts ---
+tmp_*
+**/tmp_*
 
 # --- Go Vendor ---
 vendor/

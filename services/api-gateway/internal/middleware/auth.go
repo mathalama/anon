@@ -9,6 +9,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// contextKey is a typed key for context values to prevent collisions.
+type contextKey string
+
+// UserIDKey is the context key for the authenticated user ID.
+const UserIDKey contextKey = "user_id"
+
 var publicPaths = []string{
 	"/api/v1/users/anonymous",
 	"/api/v1/users/refresh",
@@ -57,7 +63,7 @@ func Auth(secret string) func(http.Handler) http.Handler {
 			}
 
 			r.Header.Set("X-User-ID", userID)
-			ctx := context.WithValue(r.Context(), "user_id", userID)
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

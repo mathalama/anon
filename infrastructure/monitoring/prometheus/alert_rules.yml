@@ -10,20 +10,38 @@ groups:
           summary: "Service {{ $labels.instance }} is down"
           description: "Service {{ $labels.instance }} has been down for more than 1 minute."
 
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+      - alert: ApiGatewayHighErrorRate
+        expr: rate(http_requests_total{code=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
         for: 2m
         labels:
-          severity: warning
+          severity: critical
         annotations:
-          summary: "High error rate on {{ $labels.instance }}"
-          description: "Error rate is above 1% for more than 2 minutes."
+          summary: "High API Gateway Error Rate on {{ $labels.instance }}"
+          description: "HTTP 5xx error rate is above 5% for more than 2 minutes."
 
-      - alert: HighLatency
-        expr: histogram_quantile(0.95, sum by (le, instance) (rate(http_request_duration_seconds_bucket[5m]))) > 0.2
+      - alert: ApiGatewayHighLatency
+        expr: histogram_quantile(0.95, sum by (le, instance) (rate(http_request_duration_seconds_bucket[5m]))) > 0.5
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High latency on {{ $labels.instance }}"
-          description: "95th percentile of latency is above 200ms for more than 2 minutes."
+          summary: "High API Gateway Latency on {{ $labels.instance }}"
+          description: "95th percentile of HTTP latency is above 500ms for more than 2 minutes."
+
+      - alert: MatchmakingQueueStuck
+        expr: sum(nektokz_matchmaking_queue_users) > 10 and delta(nektokz_matchmaking_rooms_created_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Matchmaking Queue is Stuck"
+          description: "There are users in the matchmaking queue, but no new rooms have been created for the last 5 minutes."
+
+      - alert: ChatServiceHighWSConnections
+        expr: ws_connections_total > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of active WebSocket connections"
+          description: "Active WebSocket connections on chat-service are above 5000 for more than 5 minutes."

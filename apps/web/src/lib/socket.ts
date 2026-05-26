@@ -16,14 +16,12 @@ class ChatSocket {
     this.lastRoomId = roomId;
     this.lastToken = token;
 
-    // Cancel any pending reconnect
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
     if (this.ws) {
-      // Remove handlers before closing to prevent reconnect loop
       this.ws.onclose = null;
       this.ws.onerror = null;
       this.ws.onmessage = null;
@@ -65,15 +63,11 @@ class ChatSocket {
       console.log('Disconnected from chat', e.code, e.reason);
       this.stopHeartbeat();
 
-      // Prevent multiple simultaneous reconnect loops
       if (this.isReconnecting) return;
 
       const status = useChatStore.getState().status;
 
-      // We removed the special handling for 1006 that used to end the chat.
-      // Now it will try to reconnect just like any other non-normal closure.
-
-      if (status !== 'idle' && status !== 'ended' && status !== 'matched' && this.reconnectAttempts < this.maxReconnectAttempts) {
+      if (status !== 'idle' && status !== 'ended' && status !== 'searching' && status !== 'matched' && this.reconnectAttempts < this.maxReconnectAttempts) {
         this.isReconnecting = true;
         this.reconnectAttempts++;
         const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000);
@@ -84,7 +78,7 @@ class ChatSocket {
             this.connect(this.lastRoomId, this.lastToken);
           }
         }, delay);
-      } else if (status !== 'idle' && status !== 'ended') {
+      } else if (status !== 'idle' && status !== 'ended' && status !== 'searching') {
         useChatStore.getState().setStatus('ended');
         useChatStore.getState().setEndReason('disconnect');
       }

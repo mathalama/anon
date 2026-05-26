@@ -37,6 +37,11 @@ func Auth(secret string) func(http.Handler) http.Handler {
 				}
 			}
 			if tokenString == "" {
+				if cookie, err := r.Cookie("access_token"); err == nil {
+					tokenString = cookie.Value
+				}
+			}
+			if tokenString == "" {
 				tokenString = r.URL.Query().Get("token")
 			}
 
@@ -66,6 +71,9 @@ func isPublicPath(path string) bool {
 
 func validateToken(tokenString, secret string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return []byte(secret), nil
 	})
 	if err != nil || !token.Valid {

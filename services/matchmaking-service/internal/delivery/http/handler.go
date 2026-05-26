@@ -163,12 +163,17 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 	// Проверяем не сматчен ли уже
 	if room, _ := h.usecase.GetStatus(r.Context(), userID); room != nil {
 		matched = true
+		partnerUserID := room.UserB
+		if room.UserB == userID {
+			partnerUserID = room.UserA
+		}
 		data := map[string]interface{}{
-			"status":         "matched",
-			"room_id":        room.ID,
-			"mode":           room.Mode,
-			"is_initiator":   room.UserA == userID,
-			"partner_gender": "unknown",
+			"status":          "matched",
+			"room_id":         room.ID,
+			"mode":            room.Mode,
+			"is_initiator":    room.UserA == userID,
+			"partner_gender":  "unknown",
+			"partner_user_id": partnerUserID,
 		}
 		payload, _ := json.Marshal(data)
 		fmt.Fprintf(w, "data: %s\n\n", payload)
@@ -190,11 +195,12 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 			}
 			matched = true
 			data := map[string]interface{}{
-				"status":         "matched",
-				"room_id":        match.RoomID,
-				"mode":           match.Mode,
-				"is_initiator":   match.IsInitiator,
-				"partner_gender": match.PartnerGender,
+				"status":          "matched",
+				"room_id":         match.RoomID,
+				"mode":            match.Mode,
+				"is_initiator":    match.IsInitiator,
+				"partner_gender":  match.PartnerGender,
+				"partner_user_id": match.PartnerUserID,
 			}
 			payload, _ := json.Marshal(data)
 			fmt.Fprintf(w, "data: %s\n\n", payload)
@@ -204,6 +210,10 @@ func (h *MatchHandler) StatusSSE(w http.ResponseWriter, r *http.Request) {
 			case <-time.After(5 * time.Second):
 			}
 			return
+		case <-time.After(15 * time.Second):
+			// Send SSE keep-alive comment to prevent timeouts
+			fmt.Fprintf(w, ": keepalive\n\n")
+			flusher.Flush()
 		}
 	}
 }

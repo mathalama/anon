@@ -72,6 +72,19 @@ services:
           cpus: "0.05"
           memory: 32M
 
+  nats:
+    image: nats:2-alpine
+    container_name: nats
+    restart: unless-stopped
+    command: ["-js"]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "4222"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - nektokz-network
+
   coturn:
     image: coturn/coturn
     container_name: coturn
@@ -96,6 +109,11 @@ services:
       - --min-port=${TURN_MIN_PORT}
       - --max-port=${TURN_MAX_PORT}
       - --verbose
+    healthcheck:
+      test: ["CMD-SHELL", "pidof turnserver || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
     deploy:
@@ -189,6 +207,11 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${API_GATEWAY_PORT}/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -222,6 +245,11 @@ services:
         reservations:
           cpus: "0.15"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${USER_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -240,7 +268,10 @@ services:
       USER_SERVICE_GRPC_URL: ${USER_SERVICE_GRPC_URL}
       CHAT_SERVICE_URL: http://chat-service:${CHAT_SERVICE_PORT}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      NATS_URL: nats://nats:4222
     depends_on:
+      nats:
+        condition: service_started
       redis:
         condition: service_healthy
       user-service:
@@ -254,6 +285,11 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${MATCHMAKING_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -285,6 +321,11 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${CHAT_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -317,6 +358,11 @@ services:
         reservations:
           cpus: "0.25"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${MODERATION_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -330,6 +376,10 @@ services:
       PORT: ${NOTIFICATION_SERVICE_PORT}
       GRPC_PORT: ${NOTIFICATION_SERVICE_GRPC_PORT}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      NATS_URL: nats://nats:4222
+    depends_on:
+      nats:
+        condition: service_started
     deploy:
       replicas: 1
       resources:
@@ -339,6 +389,11 @@ services:
         reservations:
           cpus: "0.15"
           memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${NOTIFICATION_SERVICE_PORT}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -360,6 +415,12 @@ services:
       PORT: 3000
     depends_on:
       - api-gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - nektokz-network
 
@@ -378,6 +439,11 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
     depends_on:
       - api-gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
     deploy:
@@ -394,12 +460,17 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - "${GRAFANA_BIND_ADDRESS}:3000:3000"
+      - "${GRAFANA_BIND_ADDRESS}:3001:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 
@@ -415,6 +486,11 @@ services:
       - "--path.procfs=/host/proc"
       - "--path.sysfs=/host/sys"
       - "--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - nektokz-network
 

@@ -91,7 +91,7 @@ func (c *Client) ReadPump() {
 				c.sendError("ROOM_END_ERROR", err.Error())
 				continue
 			}
-			c.hub.DisconnectRoom(c.RoomID)
+			c.hub.BroadcastToRoom(c.RoomID, "", ServerMessage{Type: "partner_disconnected", Timestamp: time.Now().Unix()})
 
 		case "rtc:offer", "rtc:answer", "rtc:ice-candidate", "call:start", "call:end":
 			c.HandleSignaling(in)

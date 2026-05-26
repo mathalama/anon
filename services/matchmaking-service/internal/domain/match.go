@@ -32,6 +32,7 @@ type MatchFound struct {
 	Mode          string `json:"mode"`
 	IsInitiator   bool   `json:"is_initiator"`
 	PartnerGender string `json:"partner_gender"`
+	PartnerUserID string `json:"partner_user_id"`
 }
 
 type MatchRepository interface {

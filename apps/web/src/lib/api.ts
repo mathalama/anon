@@ -1,3 +1,5 @@
+import { API_ENDPOINTS } from './endpoints';
+
 function normalizeApiBase(raw?: string) {
   if (!raw) return '';
   const trimmed = raw.replace(/\/+$/, '');
@@ -33,7 +35,7 @@ function buildHeaders(options: RequestInit, path: string) {
   const headers = new Headers(options.headers);
 
   const token = getAccessToken();
-  const isPublic = path === '/users/anonymous';
+  const isPublic = path === API_ENDPOINTS.USERS.ANONYMOUS;
   if (token && !isPublic) headers.set('Authorization', `Bearer ${token}`);
 
   const hasContentType = headers.has('Content-Type');
@@ -88,29 +90,29 @@ type SearchFilter = {
 
 export const api = {
   createAnonymous: (deviceId: string) => 
-    fetchWithAuth('/users/anonymous', {
+    fetchWithAuth(API_ENDPOINTS.USERS.ANONYMOUS, {
       method: 'POST',
       body: JSON.stringify({ device_id: deviceId }),
     }),
-  getMe: () => fetchWithAuth('/users/me'),
+  getMe: () => fetchWithAuth(API_ENDPOINTS.USERS.ME),
   updateMe: (gender: string, interests: string[]) =>
-    fetchWithAuth('/users/me', {
+    fetchWithAuth(API_ENDPOINTS.USERS.ME, {
       method: 'PUT',
       body: JSON.stringify({ gender, interests }),
     }),
   
   search: (filter: SearchFilter) =>
-    fetchWithAuth('/match/search', {
+    fetchWithAuth(API_ENDPOINTS.MATCH.SEARCH, {
       method: 'POST',
       body: JSON.stringify({ filter }),
     }),
   
-  getStatus: () => fetchWithAuth('/match/status'),
+  getStatus: () => fetchWithAuth(API_ENDPOINTS.MATCH.STATUS),
   
-  cancelSearch: () => fetchWithAuth('/match/search', { method: 'DELETE' }),
+  cancelSearch: () => fetchWithAuth(API_ENDPOINTS.MATCH.SEARCH, { method: 'DELETE' }),
 
   reportUser: (roomId: string, reportedUserId: string, reason: string) =>
-    fetchWithAuth('/report/report', {
+    fetchWithAuth(API_ENDPOINTS.REPORT.REPORT, {
       method: 'POST',
       body: JSON.stringify({
         room_id: roomId,
@@ -120,6 +122,6 @@ export const api = {
     }),
   
   getMatchSSEUrl: (token: string) =>
-    `${API_BASE}/match/status/events?token=${encodeURIComponent(token || '')}`,
+    `${API_BASE}${API_ENDPOINTS.MATCH.STATUS_EVENTS}?token=${encodeURIComponent(token || '')}`,
 };
 

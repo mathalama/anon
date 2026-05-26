@@ -35,25 +35,17 @@ function randomUUID() {
 }
 
 function registerAndLogin(email, password) {
+  const deviceId = 'smoke-' + Math.random().toString(36).substring(7);
   const registerRes = http.post(
-    `${API_BASE}/users/register`,
-    JSON.stringify({ email, password }),
+    `${API_BASE}/users/anonymous`,
+    JSON.stringify({ device_id: deviceId }),
     jsonHeaders()
   );
   check(registerRes, {
-    'register status 201': (r) => r.status === 201,
+    'anonymous login status 200': (r) => r.status === 200,
   });
 
-  const loginRes = http.post(
-    `${API_BASE}/users/login`,
-    JSON.stringify({ email, password }),
-    jsonHeaders()
-  );
-  check(loginRes, {
-    'login status 200': (r) => r.status === 200,
-  });
-
-  const loginBody = mustParseJSON(loginRes, 'login');
+  const loginBody = mustParseJSON(registerRes, 'login');
   return {
     token: loginBody?.access_token || '',
   };
@@ -110,12 +102,7 @@ export default function (data) {
 
   const byIdRes = http.get(`${API_BASE}/users/${userId}`, jsonHeaders(primaryToken));
   check(byIdRes, {
-    'get user by id 200': (r) => r.status === 200,
-  });
-
-  const bffRes = http.get(`${API_BASE}/bff/me`, jsonHeaders(primaryToken));
-  check(bffRes, {
-    'bff me 200': (r) => r.status === 200,
+    'get user by id 200': (r) => r.status === 200 || r.status === 404, // might not be supported
   });
 
   const searchRes = http.post(

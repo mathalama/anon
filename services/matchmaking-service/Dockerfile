@@ -1,4 +1,4 @@
-FROM golang:1.25 AS builder
+FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
 COPY go.work go.work.sum ./
@@ -11,12 +11,15 @@ COPY services/user-service/go.mod services/user-service/go.sum ./services/user-s
 COPY libs/shared/go.mod libs/shared/go.sum ./libs/shared/
 COPY libs/proto/go.mod libs/proto/go.sum ./libs/proto/
 
-RUN go mod download
+ENV GOPROXY=https://proxy.golang.org,direct
+ENV GODEBUG=http2client=0
+WORKDIR /app/services/matchmaking-service
 
+WORKDIR /app
 COPY . .
 
 WORKDIR /app/services/matchmaking-service
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/main ./cmd/main.go
+RUN GOWORK=off CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o /app/main ./cmd/main.go
 
 FROM alpine:latest
 WORKDIR /root/

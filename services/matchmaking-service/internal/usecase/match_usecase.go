@@ -226,12 +226,14 @@ func (u *matchUsecase) createRoomForPair(ctx context.Context, userA, userB, mode
 		Mode:          mode,
 		IsInitiator:   true,
 		PartnerGender: gB,
+		PartnerUserID: userB,
 	})
 	_ = u.repo.PublishMatch(ctx, userB, &domain.MatchFound{
 		RoomID:        roomID,
 		Mode:          mode,
 		IsInitiator:   false,
 		PartnerGender: gA,
+		PartnerUserID: userA,
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -83,9 +84,38 @@ func main() {
 	}
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   origins,
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			// 1. Check exact match in configured AllowedOrigins & DevAllowedOrigins
+			for _, o := range origins {
+				if o == origin {
+					return true
+				}
+			}
+
+			// 2. Dynamic development checks
+			if cfg.AppEnv == "development" {
+				// Allow http://localhost:<any port> or http://127.0.0.1:<any port>
+				if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+					return true
+				}
+				// Allow exact localhost/127.0.0.1 without port
+				if origin == "http://localhost" || origin == "http://127.0.0.1" {
+					return true
+				}
+				// Allow typical localtunnel / ngrok / dev subdomains
+				if strings.HasSuffix(origin, ".loca.lt") || strings.HasSuffix(origin, ".ngrok-free.app") {
+					return true
+				}
+				// Allow staging/test subdomains of mathalama.dev or nektokz.org
+				if strings.HasSuffix(origin, ".mathalama.dev") || strings.HasSuffix(origin, ".nektokz.org") {
+					return true
+				}
+			}
+
+			return false
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "Last-Event-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "Last-Event-ID", "X-Requested-With"},
 		ExposedHeaders:   []string{"Link", "X-Request-ID"},
 		AllowCredentials: true,
 		MaxAge:           300,

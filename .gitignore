@@ -82,3 +82,13 @@ uploads/
 **/id_rsa.pub
 **/service-account-key.json
 **/k8s/secret.yaml
+
+# --- Playwright ---
+playwright-report/
+**/playwright-report/
+test-results/
+**/test-results/
+
+# --- Go Vendor ---
+vendor/
+**/vendor/

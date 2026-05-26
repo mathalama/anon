@@ -8,6 +8,7 @@ import { Send, User, ChevronLeft, Flag, X } from 'lucide-react';
 import { VoiceCallUI } from '@/components/VoiceCallUI';
 import { clsx } from 'clsx';
 import { api } from '@/lib/api';
+import { chatSocket } from '@/lib/socket';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -32,16 +33,21 @@ export default function ChatPage() {
   const { callState, isMuted, toggleMute, endCall, remoteAudioRef } = useVoiceCall();
 
   useEffect(() => {
+    return () => {
+      endCall();
+      chatSocket.disconnect();
+    };
+  }, [endCall]);
+
+  useEffect(() => {
     if (status === 'idle') {
       router.push('/');
     }
     if (status === 'ended') {
-      if (endReason === 'disconnect') {
-        setAutoSearchOnReturn(true);
-      }
+      setAutoSearchOnReturn(true);
       router.push('/search');
     }
-  }, [status, endReason, setAutoSearchOnReturn, router]);
+  }, [status, setAutoSearchOnReturn, router]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -64,14 +70,14 @@ export default function ChatPage() {
   };
 
   const handleNext = () => {
-    setAutoSearchOnReturn(false);
+    setAutoSearchOnReturn(true);
     next();
     router.push('/search');
   };
 
   const handleEndCall = () => {
     endCall();
-    setAutoSearchOnReturn(false);
+    setAutoSearchOnReturn(true);
     next();
     router.push('/search');
   };

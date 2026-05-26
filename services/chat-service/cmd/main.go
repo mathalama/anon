@@ -36,9 +36,18 @@ func main() {
 	cfg := config.Load()
 	validateConfig(cfg)
 
-	rdb := goredis.NewClient(&goredis.Options{
-		Addr: cfg.RedisURL,
-	})
+	var rdb *goredis.Client
+	if strings.HasPrefix(cfg.RedisURL, "redis://") || strings.HasPrefix(cfg.RedisURL, "rediss://") {
+		opts, err := goredis.ParseURL(cfg.RedisURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to parse redis url")
+		}
+		rdb = goredis.NewClient(opts)
+	} else {
+		rdb = goredis.NewClient(&goredis.Options{
+			Addr: cfg.RedisURL,
+		})
+	}
 	defer rdb.Close()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

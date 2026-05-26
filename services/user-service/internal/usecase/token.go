@@ -48,6 +48,9 @@ func (m *TokenManager) GenerateToken(userID string, ttl time.Duration, typ strin
 
 func (m *TokenManager) ValidateAndGetSubject(tokenString string, expectedType string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrSignatureInvalid
+		}
 		return m.secret, nil
 	})
 	if err != nil || !token.Valid {

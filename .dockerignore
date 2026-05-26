@@ -6,7 +6,6 @@ dist
 .gomodcache
 *.exe
 *.test
-vendor
 bin
 docs
 tmp

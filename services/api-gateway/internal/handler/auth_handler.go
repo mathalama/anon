@@ -89,9 +89,14 @@ func (h *AuthHandler) CreateAnonymous(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
-		http.Error(w, "invalid request", http.StatusBadRequest)
-		return
+	cookie, err := r.Cookie("refresh_token")
+	if err != nil || cookie.Value == "" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		req.RefreshToken = cookie.Value
 	}
 
 	base, err := url.Parse(h.cfg.UserServiceURL)

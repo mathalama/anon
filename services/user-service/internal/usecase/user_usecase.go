@@ -9,6 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/mathalama/nektokz/user-service/internal/domain"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+	TotalRegisteredUsers = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "nektokz_users_registered_total",
+		Help: "Total number of registered users",
+	})
 )
 
 type userUsecase struct {
@@ -40,6 +49,7 @@ func (u *userUsecase) CreateAnonymous(ctx context.Context, deviceID string) (str
 		if err := u.repo.Create(ctx, user); err != nil {
 			return "", "", err
 		}
+		TotalRegisteredUsers.Inc()
 	}
 
 	return u.tokenManager.GeneratePair(user.ID)

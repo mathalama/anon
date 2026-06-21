@@ -127,6 +127,10 @@ func (u *matchUsecase) collectQueueMetrics(ctx context.Context) {
 		if g == "" {
 			g = "any"
 		}
+		topic := entry.Filter.RoomTopic
+		if topic == "" {
+			topic = "global"
+		}
 		labelKey := mode + ":" + entry.Filter.MyGender + ":" + g
 		counts[labelKey]++
 	}
@@ -141,29 +145,35 @@ func (u *matchUsecase) collectQueueMetrics(ctx context.Context) {
 
 func (u *matchUsecase) RunMatching(ctx context.Context) {
 	modes := []string{"text", "voice"}
+	topics, err := u.repo.GetActiveTopics(ctx)
+	if err != nil || len(topics) == 0 {
+		topics = []string{"global"}
+	}
 
-	for _, mode := range modes {
-		// 1. Cross-gender matching (Male <-> Female)
-		u.matchQueues(ctx, mode, "male", "female", "female", "male")
-		u.matchQueues(ctx, mode, "male", "female", "female", "any")
-		u.matchQueues(ctx, mode, "male", "any", "female", "male")
-		u.matchQueues(ctx, mode, "male", "any", "female", "any")
+	for _, topic := range topics {
+		for _, mode := range modes {
+			// 1. Cross-gender matching (Male <-> Female)
+			u.matchQueues(ctx, topic, mode, "male", "female", "female", "male")
+			u.matchQueues(ctx, topic, mode, "male", "female", "female", "any")
+			u.matchQueues(ctx, topic, mode, "male", "any", "female", "male")
+			u.matchQueues(ctx, topic, mode, "male", "any", "female", "any")
 
-		// 2. Same-gender matching (Male <-> Male)
-		u.matchQueues(ctx, mode, "male", "male", "male", "male")
-		u.matchQueues(ctx, mode, "male", "male", "male", "any")
-		u.matchQueues(ctx, mode, "male", "any", "male", "any")
+			// 2. Same-gender matching (Male <-> Male)
+			u.matchQueues(ctx, topic, mode, "male", "male", "male", "male")
+			u.matchQueues(ctx, topic, mode, "male", "male", "male", "any")
+			u.matchQueues(ctx, topic, mode, "male", "any", "male", "any")
 
-		// 3. Same-gender matching (Female <-> Female)
-		u.matchQueues(ctx, mode, "female", "female", "female", "female")
-		u.matchQueues(ctx, mode, "female", "female", "female", "any")
-		u.matchQueues(ctx, mode, "female", "any", "female", "any")
+			// 3. Same-gender matching (Female <-> Female)
+			u.matchQueues(ctx, topic, mode, "female", "female", "female", "female")
+			u.matchQueues(ctx, topic, mode, "female", "female", "female", "any")
+			u.matchQueues(ctx, topic, mode, "female", "any", "female", "any")
+		}
 	}
 }
 
-func (u *matchUsecase) matchQueues(ctx context.Context, mode, g1, t1, g2, t2 string) {
-	q1 := "queue:" + mode + ":" + g1 + ":" + t1
-	q2 := "queue:" + mode + ":" + g2 + ":" + t2
+func (u *matchUsecase) matchQueues(ctx context.Context, topic, mode, g1, t1, g2, t2 string) {
+	q1 := "queue:" + topic + ":" + mode + ":" + g1 + ":" + t1
+	q2 := "queue:" + topic + ":" + mode + ":" + g2 + ":" + t2
 
 	// Limit number of pairs per tick to prevent blocking
 	for i := 0; i < 50; i++ {
@@ -246,7 +256,8 @@ func (u *matchUsecase) GetStatus(ctx context.Context, userID string) (*domain.Ro
 }
 
 func (u *matchUsecase) Next(ctx context.Context, userID string) error {
-	return u.repo.RemoveFromQueue(ctx, userID) // просто убираем из очереди
+	_ = u.repo.DeleteRoom(ctx, userID)
+	return u.repo.RemoveFromQueue(ctx, userID)
 }
 func (u *matchUsecase) SubscribeToMatch(ctx context.Context, userID string) (<-chan *domain.MatchFound, func(), error) {
 	return u.repo.SubscribeToMatch(ctx, userID)

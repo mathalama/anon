@@ -1,5 +1,6 @@
 import { useChatStore } from '@/store/chatStore';
 import { ServerMessage } from '@/types/chat';
+import { api } from '@/lib/api';
 
 class ChatSocket {
   private ws: WebSocket | null = null;
@@ -11,6 +12,10 @@ class ChatSocket {
   private lastRoomId: string | null = null;
   private lastToken: string | null = null;
   private isReconnecting = false;
+
+  get isOpen(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
 
   connect(roomId: string, token: string) {
     this.lastRoomId = roomId;
@@ -109,6 +114,7 @@ class ChatSocket {
       case 'partner_disconnected':
         store.setStatus('ended');
         store.setEndReason('disconnect');
+        api.next().catch(console.error);
         break;
       case 'partner_typing':
         store.setPartnerTyping(!!msg.is_typing);
@@ -124,7 +130,10 @@ class ChatSocket {
 
   send(content: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'message', content }));
+      this.ws.send(JSON.stringify({ 
+        type: 'message', 
+        content,
+      }));
     }
   }
 

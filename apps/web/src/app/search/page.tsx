@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/hooks/useChat';
-import { User, MessageSquare, Mic, Search as SearchIcon, X } from 'lucide-react';
+import { User, MessageSquare, Mic, Search as SearchIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { clsx } from 'clsx';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { api } from '@/lib/api';
@@ -21,11 +23,14 @@ export default function SearchPage() {
   const resetSession = useChatStore(s => s.resetSession);
   const {
     status, startSearch, cancelSearch,
-    myGender, selectedGender, selectedMode,
+    myGender, selectedGender, selectedMode, selectedTopic,
     autoSearchOnReturn, setAutoSearchOnReturn,
-    setMyGender, setSelectedGender, setSelectedMode
+    setMyGender, setSelectedGender, setSelectedMode, setSelectedTopic
   } = useChat();
   const [isInitReady, setIsInitReady] = useState(false);
+  const [needsCaptcha, setNeedsCaptcha] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+
   const myGenderOptions: GenderOption[] = [
     { id: 'male', label: 'Парень' },
     { id: 'female', label: 'Девушка' },
@@ -39,8 +44,14 @@ export default function SearchPage() {
     { id: 'text', label: 'Текст', icon: MessageSquare },
     { id: 'voice', label: 'Голос', icon: Mic },
   ];
+  const topicOptions = [
+    { id: 'global', label: 'Общая' },
+    { id: 'anime', label: 'Аниме' },
+    { id: 'roleplay', label: 'Ролевые' },
+    { id: '18plus', label: '18+' },
+  ];
 
-  const canStart = myGender !== '' && selectedGender !== '' && selectedMode !== '';
+  const canStart = myGender !== '' && selectedGender !== '' && selectedMode !== '' && selectedTopic !== '';
 
   useEffect(() => {
     resetSession();
@@ -52,12 +63,23 @@ export default function SearchPage() {
       if (token) {
         try {
           await api.getMe();
+          setIsInitReady(true);
+          return;
         } catch {
           localStorage.removeItem('access_token');
           token = null;
         }
       }
       if (!token) {
+        setNeedsCaptcha(true);
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (needsCaptcha && turnstileToken) {
+      const doLogin = async () => {
         try {
           let deviceId = localStorage.getItem('device_id');
           if (!deviceId) {
@@ -70,15 +92,17 @@ export default function SearchPage() {
             }
             localStorage.setItem('device_id', deviceId!);
           }
-          const { access_token } = await api.createAnonymous(deviceId!);
+          const { access_token } = await api.createAnonymous(deviceId!, turnstileToken);
           localStorage.setItem('access_token', access_token);
+          setNeedsCaptcha(false);
+          setIsInitReady(true);
         } catch (e) {
-          console.error('Init failed', e);
+          console.error('Login failed', e);
         }
-      }
-    };
-    init().finally(() => setIsInitReady(true));
-  }, []);
+      };
+      doLogin();
+    }
+  }, [needsCaptcha, turnstileToken]);
 
   useEffect(() => {
     if (status === 'chatting') {
@@ -98,19 +122,51 @@ export default function SearchPage() {
     startSearch();
   }, [isInitReady, autoSearchOnReturn, canStart, status, setAutoSearchOnReturn, startSearch]);
 
+  if (needsCaptcha) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#050505]">
+        <div className="sleek-card max-w-sm w-full text-center space-y-6 py-12">
+          <h2 className="text-xl font-semibold tracking-tight">Защита от ботов</h2>
+          <p className="text-zinc-500 text-sm">Пожалуйста, подтвердите, что вы человек.</p>
+          <div className="flex justify-center pt-4">
+            <Turnstile 
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "1x00000000000000000000AA"} 
+              onSuccess={setTurnstileToken} 
+              options={{ theme: 'dark' }}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (status === 'searching') {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#050505]">
-        <div className="sleek-card max-w-sm w-full text-center space-y-10 py-12">
-          <div className="relative mx-auto w-24 h-24">
-            <div className="absolute inset-0 border-2 border-white/5 rounded-full" />
-            <div className="absolute inset-0 border-2 border-blue-500 rounded-full border-t-transparent animate-spin" />
-            <SearchIcon className="absolute inset-0 m-auto text-blue-500 w-8 h-8" />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="sleek-card max-w-sm w-full text-center space-y-10 py-12"
+        >
+          <div className="relative mx-auto w-32 h-32 flex items-center justify-center">
+            <motion.div 
+              animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0, 0.3] }}
+              transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+              className="absolute inset-0 rounded-full bg-blue-500/30" 
+            />
+            <motion.div 
+              animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0, 0.5] }}
+              transition={{ repeat: Infinity, duration: 2, delay: 0.5, ease: "easeInOut" }}
+              className="absolute inset-0 rounded-full bg-blue-500/40" 
+            />
+            <div className="relative z-10 w-16 h-16 bg-[#050505] rounded-full flex items-center justify-center border border-white/10 shadow-xl shadow-blue-500/20">
+               <SearchIcon className="text-blue-500 w-6 h-6 animate-pulse" />
+            </div>
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-semibold tracking-tight">Поиск собеседника</h2>
             <p className="text-sm text-zinc-500 uppercase tracking-widest font-medium">
-              {selectedMode} • {selectedGender}
+              {selectedMode} • {selectedGender} • {topicOptions.find(t => t.id === selectedTopic)?.label}
             </p>
           </div>
           <button
@@ -119,7 +175,7 @@ export default function SearchPage() {
           >
             Отмена
           </button>
-        </div>
+        </motion.div>
       </main>
     );
   }
@@ -133,6 +189,29 @@ export default function SearchPage() {
         </div>
 
         <div className="space-y-8">
+          {/* Room Topic */}
+          <div className="space-y-4">
+            <label className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Комната —</label>
+            <div className="grid grid-cols-2 gap-3">
+              {topicOptions.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedTopic(item.id)}
+                  className={clsx(
+                    "py-3 rounded-xl border transition-all font-medium text-sm",
+                    selectedTopic === item.id
+                      ? item.id === '18plus' 
+                        ? "bg-red-600 border-red-500 text-white" 
+                        : "bg-blue-600 border-blue-500 text-white"
+                      : "bg-[#0f0f12] border-white/5 text-zinc-500 hover:border-white/10"
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* I am */}
           <div className="space-y-4">
             <label className="text-xs font-semibold uppercase tracking-widest text-zinc-600">Я —</label>

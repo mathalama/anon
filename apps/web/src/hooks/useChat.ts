@@ -9,25 +9,39 @@ export function useChat() {
   const connectedRoomRef = useRef<string | null>(null);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+
   const startSearch = useCallback(async () => {
     try {
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+      searchAbortControllerRef.current = new AbortController();
+      store.setStatus('searching');
+
       await api.search({
         my_gender: store.myGender,
         gender: store.selectedGender,
         mode: store.selectedMode,
-      });
-      
-      store.setStatus('searching');
-    } catch (err) {
-      console.error('Search failed', err);
-      store.setStatus('idle');
+        room_topic: store.selectedTopic,
+      }, searchAbortControllerRef.current.signal);
+      // The status remains 'searching' until SSE matches us
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Search failed', err);
+        store.setStatus('idle');
+      }
     }
   }, [store]);
 
   const cancelSearch = useCallback(async () => {
     try {
-      await api.cancelSearch();
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+        searchAbortControllerRef.current = null;
+      }
       store.setStatus('idle');
+      await api.cancelSearch();
     } catch (err) {
       console.error('Cancel failed', err);
     }

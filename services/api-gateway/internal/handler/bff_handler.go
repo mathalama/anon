@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
+	"time"
 	"github.com/mathalama/nektokz/api-gateway/internal/config"
 	"github.com/mathalama/nektokz/api-gateway/internal/client"
 	pbUser "github.com/mathalama/nektokz/proto/user/v1"
@@ -39,12 +41,26 @@ func (h *BFFHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		defer wg.Done()
-		user, _ = h.clients.User.GetUser(r.Context(), &pbUser.GetUserRequest{UserId: userID})
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		res, err := h.clients.UserBreaker.Execute(func() (interface{}, error) {
+			return h.clients.User.GetUser(ctx, &pbUser.GetUserRequest{UserId: userID})
+		})
+		if err == nil {
+			user = res.(*pbUser.GetUserResponse)
+		}
 	}()
 
 	go func() {
 		defer wg.Done()
-		match, _ = h.clients.Match.GetStatus(r.Context(), &pbMatch.GetStatusRequest{UserId: userID})
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		res, err := h.clients.MatchBreaker.Execute(func() (interface{}, error) {
+			return h.clients.Match.GetStatus(ctx, &pbMatch.GetStatusRequest{UserId: userID})
+		})
+		if err == nil {
+			match = res.(*pbMatch.GetStatusResponse)
+		}
 	}()
 
 	wg.Wait()

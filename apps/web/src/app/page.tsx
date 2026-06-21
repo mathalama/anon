@@ -12,7 +12,7 @@ export default function LandingPage() {
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
               <MessageSquare className="w-5 h-5 text-white fill-white/20" />
             </div>
-            <span>NektoKZ</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 font-bold">Mathalama Talk</span>
           </div>
           <nav>
             <Link 
@@ -106,7 +106,7 @@ export default function LandingPage() {
       {/* Подвал */}
       <footer className="border-t border-zinc-900 mt-40">
         <div className="max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between text-sm text-zinc-600">
-          <p>© {new Date().getFullYear()} NektoKZ. Создано для свободного общения.</p>
+          <p>© {new Date().getFullYear()} Mathalama Talk. Создано для свободного общения.</p>
           <div className="flex gap-8 mt-6 md:mt-0">
             <Link href="/rules" className="hover:text-white transition-colors">Правила</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Конфиденциальность</Link>

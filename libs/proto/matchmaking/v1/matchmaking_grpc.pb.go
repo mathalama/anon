@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.35.0--rc1
-// source: proto/matchmaking/v1/matchmaking.proto
+// source: matchmaking/v1/matchmaking.proto
 
 package v1
 
@@ -193,5 +193,5 @@ var MatchmakingService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/matchmaking/v1/matchmaking.proto",
+	Metadata: "matchmaking/v1/matchmaking.proto",
 }

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ChatState, Message, ChatStatus } from '@/types/chat';
 
 interface ChatStore extends ChatState {
+  selectedTopic: string;
   selectedMode: 'text' | 'voice' | '';
   myGender: 'male' | 'female' | '';
   selectedGender: 'any' | 'male' | 'female' | '';
@@ -14,6 +15,7 @@ interface ChatStore extends ChatState {
   setRoomId: (roomId: string | null) => void;
   setMode: (mode: 'text' | 'voice' | null) => void;
   setIsInitiator: (isInitiator: boolean) => void;
+  setSelectedTopic: (topic: string) => void;
   setSelectedMode: (mode: 'text' | 'voice' | '') => void;
   setSelectedGender: (gender: 'any' | 'male' | 'female' | '') => void;
   setMyGender: (gender: 'male' | 'female' | '') => void;
@@ -40,6 +42,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   messages: [],
   isPartnerTyping: false,
   endReason: null,
+  selectedTopic: 'global',
   selectedMode: '',
   myGender: '',
   selectedGender: '',
@@ -53,6 +56,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   setRoomId: (roomId) => set({ roomId }),
   setMode: (mode) => set({ mode }),
   setIsInitiator: (isInitiator) => set({ isInitiator }),
+  setSelectedTopic: (topic) => set({ selectedTopic: topic }),
   setSelectedMode: (mode) => set({ selectedMode: mode }),
   setSelectedGender: (gender) => set({ selectedGender: gender }),
   setMyGender: (gender) => set({ myGender: gender }),
@@ -86,12 +90,14 @@ export const useChatStore = create<ChatStore>((set) => ({
     myGender: state.myGender,
     selectedGender: state.selectedGender,
     selectedMode: state.selectedMode,
+    selectedTopic: state.selectedTopic,
     autoSearchOnReturn: state.autoSearchOnReturn,
   })),
   reset: () => set({ 
     status: 'idle', roomId: null, messages: [], 
     isPartnerTyping: false, endReason: null, mode: null, 
     isInitiator: false, selectedGender: '', partnerGender: '',
+    selectedTopic: 'global',
     selectedMode: '', myGender: '', partnerUserId: '', autoSearchOnReturn: false
   }),
 }));

@@ -46,6 +46,27 @@ func (r *InMemoryMatchRepository) GetQueue(ctx context.Context) ([]*domain.Queue
 	return r.queue, nil
 }
 
+func (r *InMemoryMatchRepository) GetActiveTopics(ctx context.Context) ([]string, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	topicsMap := make(map[string]bool)
+	for _, e := range r.queue {
+		if e.Filter.RoomTopic != "" {
+			topicsMap[e.Filter.RoomTopic] = true
+		} else {
+			topicsMap["global"] = true
+		}
+	}
+	var topics []string
+	for t := range topicsMap {
+		topics = append(topics, t)
+	}
+	if len(topics) == 0 {
+		topics = []string{"global"}
+	}
+	return topics, nil
+}
+
 func (r *InMemoryMatchRepository) PopSegment(ctx context.Context, key string, count int) ([]string, error) {
 	// Simple implementation for in-memory stub
 	r.mu.RLock()

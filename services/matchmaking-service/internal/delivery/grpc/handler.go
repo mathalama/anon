@@ -24,6 +24,7 @@ func (h *MatchmakingHandler) Search(ctx context.Context, req *pb.SearchRequest) 
 		Mode:      req.Mode,
 		Gender:    req.Gender,
 		Interests: req.Interests,
+		RoomTopic: req.RoomTopic,
 	}
 	// Note: we might need MyGender here, but SearchRequest doesn't have it yet.
 	// In the real app, we get MyGender from the user profile.

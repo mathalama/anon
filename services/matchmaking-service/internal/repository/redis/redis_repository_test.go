@@ -98,7 +98,7 @@ func TestRedisMatchRepository_GetQueue_LazyDeletion(t *testing.T) {
 	assert.Equal(t, "user1", queue[0].UserID)
 
 	// Verify user2 is removed from the Redis ZSET
-	exists, _ := rdb.ZScore(ctx, "queue:text:female:male", "user2").Result()
+	exists, _ := rdb.ZScore(ctx, "queue:global:text:female:male", "user2").Result()
 	assert.Zero(t, exists)
 }
 
@@ -109,8 +109,9 @@ func TestRedisMatchRepository_CreateRoom_DynamicZREM(t *testing.T) {
 	})
 	
 	repo := &RedisMatchRepository{
-		rdb:     rdb,
-		roomTTL: 1 * time.Hour,
+		rdb:       rdb,
+		roomTTL:   1 * time.Hour,
+		filterTTL: 1 * time.Hour,
 	}
 
 	ctx := context.Background()
@@ -140,11 +141,11 @@ func TestRedisMatchRepository_CreateRoom_DynamicZREM(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify they are in their queues
-	score1, err := rdb.ZScore(ctx, "queue:text:male:female", "user1").Result()
+	score1, err := rdb.ZScore(ctx, "queue:global:text:male:female", "user1").Result()
 	assert.NoError(t, err)
 	assert.True(t, score1 > 0)
 
-	score2, err := rdb.ZScore(ctx, "queue:text:female:male", "user2").Result()
+	score2, err := rdb.ZScore(ctx, "queue:global:text:female:male", "user2").Result()
 	assert.NoError(t, err)
 	assert.True(t, score2 > 0)
 
@@ -160,9 +161,9 @@ func TestRedisMatchRepository_CreateRoom_DynamicZREM(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify they were dynamically ZREMed from their specific queues
-	exists1, _ := rdb.ZScore(ctx, "queue:text:male:female", "user1").Result()
+	exists1, _ := rdb.ZScore(ctx, "queue:global:text:male:female", "user1").Result()
 	assert.Zero(t, exists1)
 
-	exists2, _ := rdb.ZScore(ctx, "queue:text:female:male", "user2").Result()
+	exists2, _ := rdb.ZScore(ctx, "queue:global:text:female:male", "user2").Result()
 	assert.Zero(t, exists2)
 }

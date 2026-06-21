@@ -76,16 +76,19 @@ func (r *RedisMatchRepository) Close() error {
 	return r.rdb.Close()
 }
 
-func (r *RedisMatchRepository) getQueueKey(mode, myGender, targetGender string) string {
+func (r *RedisMatchRepository) getQueueKey(topic, mode, myGender, targetGender string) string {
 	if targetGender == "" {
 		targetGender = "any"
 	}
-	return "queue:" + mode + ":" + myGender + ":" + targetGender
+	if topic == "" {
+		topic = "global"
+	}
+	return "queue:" + topic + ":" + mode + ":" + myGender + ":" + targetGender
 }
 
 func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.QueueEntry) error {
 	score := float64(entry.JoinedAt.Unix())
-	key := r.getQueueKey(entry.Filter.Mode, entry.Filter.MyGender, entry.Filter.Gender)
+	key := r.getQueueKey(entry.Filter.RoomTopic, entry.Filter.Mode, entry.Filter.MyGender, entry.Filter.Gender)
 
 	if err := r.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: entry.UserID}).Err(); err != nil {
 		return err
@@ -98,6 +101,7 @@ func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.Que
 		"gender", entry.Filter.Gender,
 		"interests", string(interestsJSON),
 		"mode", entry.Filter.Mode,
+		"room_topic", entry.Filter.RoomTopic,
 	).Err(); err != nil {
 		return err
 	}
@@ -107,7 +111,7 @@ func (r *RedisMatchRepository) AddToQueue(ctx context.Context, entry *domain.Que
 func (r *RedisMatchRepository) RemoveFromQueue(ctx context.Context, userID string) error {
 	filter, err := r.getFilter(ctx, userID)
 	if err == nil && filter.Mode != "" {
-		key := r.getQueueKey(filter.Mode, filter.MyGender, filter.Gender)
+		key := r.getQueueKey(filter.RoomTopic, filter.Mode, filter.MyGender, filter.Gender)
 		r.rdb.ZRem(ctx, key, userID)
 	}
 	// Also try global/fallback if exists (for migration or safety)
@@ -120,8 +124,8 @@ func (r *RedisMatchRepository) RemoveFromQueue(ctx context.Context, userID strin
 }
 
 func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEntry, error) {
-	// Find all keys like queue:text:male, queue:voice:female, etc.
-	keys, err := r.rdb.Keys(ctx, "queue:*:*").Result()
+	// Find all keys like queue:global:text:male:female, queue:anime:voice:female:any, etc.
+	keys, err := r.rdb.Keys(ctx, "queue:*:*:*:*").Result()
 	if err != nil {
 		return nil, err
 	}
@@ -169,12 +173,15 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 			continue
 		}
 
-		filter := domain.Filter{Gender: "any", Mode: "text"}
+		filter := domain.Filter{Gender: "any", Mode: "text", RoomTopic: "global"}
 		if s := m["interests"]; s != "" {
 			_ = json.Unmarshal([]byte(s), &filter.Interests)
 		}
 		if g := m["gender"]; g != "" {
 			filter.Gender = g
+		}
+		if t := m["room_topic"]; t != "" {
+			filter.RoomTopic = t
 		}
 		filter.MyGender = m["my_gender"]
 		filter.Mode = m["mode"]
@@ -186,6 +193,28 @@ func (r *RedisMatchRepository) GetQueue(ctx context.Context) ([]*domain.QueueEnt
 		})
 	}
 	return out, nil
+}
+
+func (r *RedisMatchRepository) GetActiveTopics(ctx context.Context) ([]string, error) {
+	keys, err := r.rdb.Keys(ctx, "queue:*:*:*:*").Result()
+	if err != nil {
+		return nil, err
+	}
+	topicsMap := make(map[string]bool)
+	for _, key := range keys {
+		parts := strings.Split(key, ":")
+		if len(parts) >= 5 {
+			topicsMap[parts[1]] = true
+		}
+	}
+	var topics []string
+	for t := range topicsMap {
+		topics = append(topics, t)
+	}
+	if len(topics) == 0 {
+		topics = []string{"global"}
+	}
+	return topics, nil
 }
 
 func (r *RedisMatchRepository) PopSegment(ctx context.Context, key string, count int) ([]string, error) {
@@ -218,28 +247,24 @@ func (r *RedisMatchRepository) CreateRoom(ctx context.Context, room *domain.Room
 		redis.call("SET", KEYS[2], ARGV[6], "EX", ARGV[5])
 		
 		-- Dynamically clean up specific queues using the users' filters
-		local filterA = redis.call("HMGET", ARGV[7] .. ARGV[1], "my_gender", "gender", "mode")
+		local filterA = redis.call("HMGET", ARGV[7] .. ARGV[1], "my_gender", "gender", "mode", "room_topic")
 		if filterA[1] and filterA[2] and filterA[3] then
-			local qA = "queue:" .. filterA[3] .. ":" .. filterA[1] .. ":" .. filterA[2]
+			local topicA = filterA[4]
+			if not topicA or topicA == "" then topicA = "global" end
+			local qA = "queue:" .. topicA .. ":" .. filterA[3] .. ":" .. filterA[1] .. ":" .. filterA[2]
 			redis.call("ZREM", qA, ARGV[1])
 		end
 
-		local filterB = redis.call("HMGET", ARGV[7] .. ARGV[2], "my_gender", "gender", "mode")
+		local filterB = redis.call("HMGET", ARGV[7] .. ARGV[2], "my_gender", "gender", "mode", "room_topic")
 		if filterB[1] and filterB[2] and filterB[3] then
-			local qB = "queue:" .. filterB[3] .. ":" .. filterB[1] .. ":" .. filterB[2]
+			local topicB = filterB[4]
+			if not topicB or topicB == "" then topicB = "global" end
+			local qB = "queue:" .. topicB .. ":" .. filterB[3] .. ":" .. filterB[1] .. ":" .. filterB[2]
 			redis.call("ZREM", qB, ARGV[2])
 		end
 
 		-- Fallback/global queue cleanups
 		redis.call("ZREM", "queue:searching", ARGV[1], ARGV[2])
-
-		-- Remove from all possible gender buckets for this mode (defense-in-depth)
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:female", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:any", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":male:male", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:male", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:any", ARGV[1], ARGV[2])
-		redis.call("ZREM", "queue:" .. ARGV[3] .. ":female:female", ARGV[1], ARGV[2])
 		
 		redis.call("DEL", ARGV[7] .. ARGV[1], ARGV[7] .. ARGV[2])
 		return 1
@@ -308,6 +333,7 @@ func (r *RedisMatchRepository) getFilter(ctx context.Context, userID string) (do
 		Gender:    g,
 		Interests: interests,
 		Mode:      m["mode"],
+		RoomTopic: m["room_topic"],
 	}, nil
 }
 

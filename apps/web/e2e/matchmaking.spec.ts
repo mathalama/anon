@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('NektoKZ Realtime Matchmaking & Chat E2E', () => {
+test.describe('Mathalama Talk Realtime Matchmaking & Chat E2E', () => {
   test('two independent users can match and chat with each other successfully', async ({ browser }) => {
     // 1. Create two isolated browser contexts and inject a unique device ID to bypass fingerprint collision in headless envs
     const devIdA = 'device_user_a_' + Math.random().toString(36).substring(2) + Date.now().toString(36);

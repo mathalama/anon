@@ -3,8 +3,9 @@ import { Providers } from "./providers";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "NektoKZ - Anonymous Chat",
+  title: "Mathalama Talk - Anonymous Chat",
   description: "Find someone to talk to, anonymously.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

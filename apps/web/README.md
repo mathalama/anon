@@ -1,4 +1,4 @@
-# NektoKZ Frontend
+# Mathalama Talk Frontend
 
 Modern anonymous chat web application built with Next.js 14.
 

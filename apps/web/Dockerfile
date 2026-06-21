@@ -6,9 +6,10 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies inside the container
 COPY package.json package-lock.json ./
-COPY node_modules ./node_modules
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -23,7 +24,8 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner

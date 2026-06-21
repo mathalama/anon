@@ -17,6 +17,7 @@ message SearchRequest {
   string mode = 2;
   string gender = 3;
   repeated string interests = 4;
+  string room_topic = 5;
 }
 
 message SearchResponse {

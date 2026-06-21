@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-test.describe.serial('NektoKZ API Tests', () => {
+test.describe.serial('Mathalama Talk API Tests', () => {
   const API_BASE = 'http://127.0.0.1:8080/api/v1'; 
   let accessToken: string;
-  let deviceId = `test-device-${Date.now()}`;
+  const deviceId = `test-device-${Date.now()}`;
 
   test('Create anonymous user', async ({ request }) => {
     const response = await request.post(`${API_BASE}/users/anonymous`, {

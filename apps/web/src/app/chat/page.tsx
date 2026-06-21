@@ -1,18 +1,23 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/hooks/useChat';
 import { useVoiceCall } from '@/hooks/useVoiceCall';
-import { Send, User, ChevronLeft, Flag, X } from 'lucide-react';
-import { VoiceCallUI } from '@/components/VoiceCallUI';
+import { User, ChevronLeft, Flag } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { clsx } from 'clsx';
 import { api } from '@/lib/api';
 import { chatSocket } from '@/lib/socket';
+import { MessageBubble } from '@/components/MessageBubble';
+import { ChatInput } from '@/components/ChatInput';
+import { playSound } from '@/lib/sounds';
+
+const VoiceCallUI = dynamic(() => import('@/components/VoiceCallUI').then(mod => mod.VoiceCallUI), { ssr: false });
+
 
 export default function ChatPage() {
   const router = useRouter();
-  const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -23,7 +28,7 @@ export default function ChatPage() {
     partnerGender,
     partnerUserId,
     roomId,
-    endReason,
+
     setAutoSearchOnReturn,
     sendMessage,
     sendTyping,
@@ -55,18 +60,35 @@ export default function ChatPage() {
     }
   }, [messages, isPartnerTyping]);
 
-  const handleSend = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (input.trim()) {
-      sendMessage(input.trim());
-      setInput('');
-      sendTyping(false);
+  const prevStatus = useRef(status);
+  const prevMessagesLen = useRef(messages.length);
+
+  useEffect(() => {
+    if (prevStatus.current === 'searching' && status === 'chatting') {
+      playSound('match');
+    } else if (prevStatus.current === 'chatting' && status === 'ended') {
+      playSound('disconnect');
     }
+    prevStatus.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    if (messages.length > prevMessagesLen.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg && lastMsg.sender !== 'me') {
+        playSound('message');
+      }
+    }
+    prevMessagesLen.current = messages.length;
+  }, [messages]);
+
+  const handleSend = (content: string) => {
+    sendMessage(content);
+    sendTyping(false);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value);
-    sendTyping(e.target.value.length > 0);
+  const handleTyping = (isTyping: boolean) => {
+    sendTyping(isTyping);
   };
 
   const handleNext = () => {
@@ -165,30 +187,7 @@ export default function ChatPage() {
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
           {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={clsx(
-                'flex w-full',
-                msg.sender === 'me' ? 'justify-end' : 'justify-start',
-              )}
-            >
-              <div
-                className={clsx(
-                  'chat-bubble',
-                  msg.sender === 'me' ? 'chat-bubble-me' : 'chat-bubble-partner',
-                )}
-              >
-                <p>{msg.content}</p>
-                <span
-                  className={clsx(
-                    'text-[10px] font-medium uppercase tracking-widest mt-2 block opacity-40',
-                    msg.sender === 'me' ? 'text-right' : 'text-left',
-                  )}
-                >
-                  {new Date(typeof msg.timestamp === 'number' && msg.timestamp > 1e12 ? msg.timestamp : (msg.timestamp || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-            </div>
+            <MessageBubble key={i} msg={msg} />
           ))}
 
           {isPartnerTyping && (
@@ -204,24 +203,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        <form onSubmit={handleSend} className="p-6 border-t border-white/5 bg-[#050505] mt-auto">
-          <div className="flex items-center gap-3 max-w-5xl mx-auto">
-            <input
-              type="text"
-              value={input}
-              onChange={handleInputChange}
-              placeholder="Напишите сообщение..."
-              className="sleek-input flex-1"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="sleek-button p-4 rounded-xl"
-            >
-              <Send className="w-6 h-6" />
-            </button>
-          </div>
-        </form>
+        <ChatInput onSendMessage={handleSend} onTyping={handleTyping} />
       </div>
     </main>
   );

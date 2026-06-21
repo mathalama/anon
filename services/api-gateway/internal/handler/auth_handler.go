@@ -2,10 +2,12 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mathalama/nektokz/api-gateway/internal/client"
@@ -23,7 +25,8 @@ func NewAuthHandler(cfg *config.Config, clients *client.GRPCClients) *AuthHandle
 }
 
 type AnonymousRequest struct {
-	DeviceID string `json:"device_id"`
+	DeviceID       string `json:"device_id"`
+	TurnstileToken string `json:"cf-turnstile-response"`
 }
 
 type RefreshRequest struct {
@@ -34,6 +37,11 @@ func (h *AuthHandler) CreateAnonymous(w http.ResponseWriter, r *http.Request) {
 	var req AnonymousRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.DeviceID == "" {
 		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if !h.validateTurnstile(r.Context(), req.TurnstileToken) {
+		http.Error(w, "captcha verification failed", http.StatusForbidden)
 		return
 	}
 
@@ -168,4 +176,43 @@ func (h *AuthHandler) setAuthCookies(w http.ResponseWriter, access, refresh stri
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(7 * 24 * time.Hour),
 	})
+}
+
+func (h *AuthHandler) validateTurnstile(ctx context.Context, token string) bool {
+	if h.cfg.TurnstileSecret == "" {
+		return true // disabled
+	}
+	if h.cfg.AppEnv == "development" && token == "test" {
+		return true
+	}
+	if token == "" {
+		return false
+	}
+
+	form := url.Values{}
+	form.Add("secret", h.cfg.TurnstileSecret)
+	form.Add("response", token)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://challenges.cloudflare.com/turnstile/v0/siteverify", strings.NewReader(form.Encode()))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create turnstile request")
+		return false
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to verify turnstile")
+		return false
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false
+	}
+	return result.Success
 }

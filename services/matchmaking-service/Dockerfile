@@ -1,27 +1,35 @@
 FROM golang:1.25-alpine AS builder
+RUN apk add --no-cache git ca-certificates
 WORKDIR /app
 
 COPY go.work go.work.sum ./
-COPY services/api-gateway/go.mod services/api-gateway/go.sum ./services/api-gateway/
-COPY services/chat-service/go.mod services/chat-service/go.sum ./services/chat-service/
 COPY services/matchmaking-service/go.mod services/matchmaking-service/go.sum ./services/matchmaking-service/
-COPY services/moderation-service/go.mod services/moderation-service/go.sum ./services/moderation-service/
-COPY services/notification-service/go.mod services/notification-service/go.sum ./services/notification-service/
-COPY services/user-service/go.mod services/user-service/go.sum ./services/user-service/
 COPY libs/shared/go.mod libs/shared/go.sum ./libs/shared/
 COPY libs/proto/go.mod libs/proto/go.sum ./libs/proto/
 
 ENV GOPROXY=https://proxy.golang.org,direct
 ENV GODEBUG=http2client=0
+
 WORKDIR /app/services/matchmaking-service
+RUN GOWORK=off go mod download
 
 WORKDIR /app
-COPY . .
+COPY libs/shared ./libs/shared
+COPY libs/proto ./libs/proto
+COPY services/matchmaking-service ./services/matchmaking-service
 
 WORKDIR /app/services/matchmaking-service
-RUN GOWORK=off CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o /app/main ./cmd/main.go
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOWORK=off CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/main ./cmd/main.go
 
-FROM alpine:latest
-WORKDIR /root/
+FROM alpine:3.21
+RUN apk add --no-cache ca-certificates && \
+    addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
 COPY --from=builder /app/main .
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 CMD ["./main"]

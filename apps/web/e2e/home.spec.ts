@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('NektoKZ Matchmaking Flow', () => {
+test.describe('Mathalama Talk Matchmaking Flow', () => {
   test('has title and can see search form', async ({ page }) => {
     // Note: This relies on the local dev server running and API being reachable
     // Mocking API requests or waiting for network idle is recommended for stable tests
     await page.goto('/search');
 
     // Expect a title "to contain" a substring.
-    await expect(page).toHaveTitle(/NektoKZ/i);
+    await expect(page).toHaveTitle(/Mathalama Talk/i);
 
     // Expect the header text to be visible
     const heading = page.locator('h1', { hasText: 'Настройки поиска' });

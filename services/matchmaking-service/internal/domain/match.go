@@ -10,6 +10,7 @@ type Filter struct {
 	Gender    string   `json:"gender" validate:"oneof=male female any ''"`
 	Interests []string `json:"interests" validate:"max=10"`
 	Mode      string   `json:"mode" validate:"required,oneof=text voice"` // "text" or "voice"
+	RoomTopic string   `json:"room_topic" validate:"max=50"`
 }
 
 type QueueEntry struct {
@@ -39,6 +40,7 @@ type MatchRepository interface {
 	AddToQueue(ctx context.Context, entry *QueueEntry) error
 	RemoveFromQueue(ctx context.Context, userID string) error
 	GetQueue(ctx context.Context) ([]*QueueEntry, error)
+	GetActiveTopics(ctx context.Context) ([]string, error)
 	CreateRoom(ctx context.Context, room *Room) error
 	GetRoom(ctx context.Context, userID string) (*Room, error)
 	DeleteRoom(ctx context.Context, userID string) error

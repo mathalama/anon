@@ -52,12 +52,13 @@ type Client struct {
 type Hub struct {
 	shards []*HubShard
 	rdb    *goredis.Client
+	rooms  sync.Map // roomID -> *sync.Map (userID -> *Client)
 }
 
 // HubShard handles a subset of clients to reduce mutex contention
 type HubShard struct {
-	clients    map[string]*Client             // userID -> client
-	rooms      map[string]map[string]struct{} // roomID -> set(userID)
+	clients    map[string]*Client // userID -> client
+
 	register   chan *Client
 	unregister chan *Client
 	mu         sync.RWMutex
@@ -78,7 +79,6 @@ func NewHub(rdb *goredis.Client) *Hub {
 	for i := 0; i < numShards; i++ {
 		shards[i] = &HubShard{
 			clients:    make(map[string]*Client),
-			rooms:      make(map[string]map[string]struct{}),
 			register:   make(chan *Client),
 			unregister: make(chan *Client),
 		}
@@ -111,11 +111,13 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 		case client := <-shard.register:
 			shard.mu.Lock()
 			shard.clients[client.UserID] = client
-			if _, ok := shard.rooms[client.RoomID]; !ok {
-				shard.rooms[client.RoomID] = make(map[string]struct{})
-			}
-			shard.rooms[client.RoomID][client.UserID] = struct{}{}
 			shard.mu.Unlock()
+
+			// Add to room sync.Map
+			h.rooms.LoadOrStore(client.RoomID, &sync.Map{})
+			if val, ok := h.rooms.Load(client.RoomID); ok {
+				val.(*sync.Map).Store(client.UserID, client)
+			}
 
 			// Increment metrics
 			ActiveUsers.Inc()
@@ -154,14 +156,23 @@ func (h *Hub) runShard(ctx context.Context, shard *HubShard) {
 					close(client.done)
 				}
 			}
+			shard.mu.Unlock()
 
-			if users, ok := shard.rooms[roomID]; ok {
-				delete(users, userID)
-				if len(users) == 0 {
-					delete(shard.rooms, roomID)
+			// Remove from room sync.Map
+			if val, ok := h.rooms.Load(roomID); ok {
+				roomMap := val.(*sync.Map)
+				roomMap.Delete(userID)
+				
+				// Optional: garbage collect empty rooms
+				isEmpty := true
+				roomMap.Range(func(key, value any) bool {
+					isEmpty = false
+					return false
+				})
+				if isEmpty {
+					h.rooms.Delete(roomID)
 				}
 			}
-			shard.mu.Unlock()
 
 			// Decrement metrics
 			ActiveUsers.Dec()
@@ -251,54 +262,33 @@ func (h *Hub) DisconnectUser(userID string) {
 }
 
 func (h *Hub) DisconnectRoom(roomID string) {
-	// Since we don't know the shards for all users in a room without scanning,
-	// we broadcast a disconnect message to all shards
-	for _, shard := range h.shards {
-		shard.mu.RLock()
-		users := shard.rooms[roomID]
-		clients := make([]*Client, 0, len(users))
-		for userID := range users {
-			if c, ok := shard.clients[userID]; ok {
-				clients = append(clients, c)
-			}
-		}
-		shard.mu.RUnlock()
-
-		for _, c := range clients {
-			c.conn.Close()
-		}
+	if val, ok := h.rooms.Load(roomID); ok {
+		val.(*sync.Map).Range(func(key, value any) bool {
+			client := value.(*Client)
+			client.conn.Close()
+			return true
+		})
 	}
 }
 
 func (h *Hub) sendToRoomLocal(roomID string, build func(recipientID string) ServerMessage) {
-	// Scan all shards for users in this room
-	// This is necessary because we don't centralize room membership
-	for _, shard := range h.shards {
-		shard.mu.RLock()
-		users := shard.rooms[roomID]
-		clients := make([]*Client, 0, len(users))
-		for userID := range users {
-			if c, ok := shard.clients[userID]; ok {
-				clients = append(clients, c)
-			}
-		}
-		shard.mu.RUnlock()
-
-		for _, c := range clients {
+	if val, ok := h.rooms.Load(roomID); ok {
+		val.(*sync.Map).Range(func(key, value any) bool {
+			c := value.(*Client)
 			msg := build(c.UserID)
 			if msg.Type == "" {
-				continue
+				return true
 			}
 			data, _ := json.Marshal(msg)
 			select {
 			case <-c.done:
-				continue
 			case c.send <- data:
 			default:
 				// Buffer full - client is not reading fast enough, close connection
 				go h.Unregister(c)
 			}
-		}
+			return true
+		})
 	}
 }
 

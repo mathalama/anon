@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.35.0--rc1
-// source: proto/matchmaking/v1/matchmaking.proto
+// source: matchmaking/v1/matchmaking.proto
 
 package v1
 
@@ -28,13 +28,14 @@ type SearchRequest struct {
 	Mode          string                 `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`
 	Gender        string                 `protobuf:"bytes,3,opt,name=gender,proto3" json:"gender,omitempty"`
 	Interests     []string               `protobuf:"bytes,4,rep,name=interests,proto3" json:"interests,omitempty"`
+	RoomTopic     string                 `protobuf:"bytes,5,opt,name=room_topic,json=roomTopic,proto3" json:"room_topic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[0]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +47,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[0]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +60,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{0}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SearchRequest) GetUserId() string {
@@ -90,6 +91,13 @@ func (x *SearchRequest) GetInterests() []string {
 	return nil
 }
 
+func (x *SearchRequest) GetRoomTopic() string {
+	if x != nil {
+		return x.RoomTopic
+	}
+	return ""
+}
+
 type SearchResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -99,7 +107,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[1]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +119,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[1]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,7 +132,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{1}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SearchResponse) GetSuccess() bool {
@@ -143,7 +151,7 @@ type CancelRequest struct {
 
 func (x *CancelRequest) Reset() {
 	*x = CancelRequest{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[2]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +163,7 @@ func (x *CancelRequest) String() string {
 func (*CancelRequest) ProtoMessage() {}
 
 func (x *CancelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[2]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +176,7 @@ func (x *CancelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelRequest.ProtoReflect.Descriptor instead.
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{2}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CancelRequest) GetUserId() string {
@@ -187,7 +195,7 @@ type CancelResponse struct {
 
 func (x *CancelResponse) Reset() {
 	*x = CancelResponse{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[3]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -199,7 +207,7 @@ func (x *CancelResponse) String() string {
 func (*CancelResponse) ProtoMessage() {}
 
 func (x *CancelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[3]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -212,7 +220,7 @@ func (x *CancelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelResponse.ProtoReflect.Descriptor instead.
 func (*CancelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{3}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CancelResponse) GetSuccess() bool {
@@ -231,7 +239,7 @@ type GetStatusRequest struct {
 
 func (x *GetStatusRequest) Reset() {
 	*x = GetStatusRequest{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[4]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +251,7 @@ func (x *GetStatusRequest) String() string {
 func (*GetStatusRequest) ProtoMessage() {}
 
 func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[4]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +264,7 @@ func (x *GetStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{4}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetStatusRequest) GetUserId() string {
@@ -277,7 +285,7 @@ type GetStatusResponse struct {
 
 func (x *GetStatusResponse) Reset() {
 	*x = GetStatusResponse{}
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[5]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -289,7 +297,7 @@ func (x *GetStatusResponse) String() string {
 func (*GetStatusResponse) ProtoMessage() {}
 
 func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_matchmaking_v1_matchmaking_proto_msgTypes[5]
+	mi := &file_matchmaking_v1_matchmaking_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -302,7 +310,7 @@ func (x *GetStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{5}
+	return file_matchmaking_v1_matchmaking_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetStatusResponse) GetRoomId() string {
@@ -326,16 +334,18 @@ func (x *GetStatusResponse) GetStatus() string {
 	return ""
 }
 
-var File_proto_matchmaking_v1_matchmaking_proto protoreflect.FileDescriptor
+var File_matchmaking_v1_matchmaking_proto protoreflect.FileDescriptor
 
-const file_proto_matchmaking_v1_matchmaking_proto_rawDesc = "" +
+const file_matchmaking_v1_matchmaking_proto_rawDesc = "" +
 	"\n" +
-	"&proto/matchmaking/v1/matchmaking.proto\x12\x0ematchmaking.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"r\n" +
+	" matchmaking/v1/matchmaking.proto\x12\x0ematchmaking.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x01\n" +
 	"\rSearchRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04mode\x18\x02 \x01(\tR\x04mode\x12\x16\n" +
 	"\x06gender\x18\x03 \x01(\tR\x06gender\x12\x1c\n" +
-	"\tinterests\x18\x04 \x03(\tR\tinterests\"*\n" +
+	"\tinterests\x18\x04 \x03(\tR\tinterests\x12\x1d\n" +
+	"\n" +
+	"room_topic\x18\x05 \x01(\tR\troomTopic\"*\n" +
 	"\x0eSearchResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"(\n" +
 	"\rCancelRequest\x12\x17\n" +
@@ -355,19 +365,19 @@ const file_proto_matchmaking_v1_matchmaking_proto_rawDesc = "" +
 	"\tGetStatus\x12 .matchmaking.v1.GetStatusRequest\x1a!.matchmaking.v1.GetStatusResponseB3Z1github.com/mathalama/nektokz/proto/matchmaking/v1b\x06proto3"
 
 var (
-	file_proto_matchmaking_v1_matchmaking_proto_rawDescOnce sync.Once
-	file_proto_matchmaking_v1_matchmaking_proto_rawDescData []byte
+	file_matchmaking_v1_matchmaking_proto_rawDescOnce sync.Once
+	file_matchmaking_v1_matchmaking_proto_rawDescData []byte
 )
 
-func file_proto_matchmaking_v1_matchmaking_proto_rawDescGZIP() []byte {
-	file_proto_matchmaking_v1_matchmaking_proto_rawDescOnce.Do(func() {
-		file_proto_matchmaking_v1_matchmaking_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_matchmaking_v1_matchmaking_proto_rawDesc), len(file_proto_matchmaking_v1_matchmaking_proto_rawDesc)))
+func file_matchmaking_v1_matchmaking_proto_rawDescGZIP() []byte {
+	file_matchmaking_v1_matchmaking_proto_rawDescOnce.Do(func() {
+		file_matchmaking_v1_matchmaking_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_matchmaking_v1_matchmaking_proto_rawDesc), len(file_matchmaking_v1_matchmaking_proto_rawDesc)))
 	})
-	return file_proto_matchmaking_v1_matchmaking_proto_rawDescData
+	return file_matchmaking_v1_matchmaking_proto_rawDescData
 }
 
-var file_proto_matchmaking_v1_matchmaking_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_proto_matchmaking_v1_matchmaking_proto_goTypes = []any{
+var file_matchmaking_v1_matchmaking_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_matchmaking_v1_matchmaking_proto_goTypes = []any{
 	(*SearchRequest)(nil),     // 0: matchmaking.v1.SearchRequest
 	(*SearchResponse)(nil),    // 1: matchmaking.v1.SearchResponse
 	(*CancelRequest)(nil),     // 2: matchmaking.v1.CancelRequest
@@ -375,7 +385,7 @@ var file_proto_matchmaking_v1_matchmaking_proto_goTypes = []any{
 	(*GetStatusRequest)(nil),  // 4: matchmaking.v1.GetStatusRequest
 	(*GetStatusResponse)(nil), // 5: matchmaking.v1.GetStatusResponse
 }
-var file_proto_matchmaking_v1_matchmaking_proto_depIdxs = []int32{
+var file_matchmaking_v1_matchmaking_proto_depIdxs = []int32{
 	0, // 0: matchmaking.v1.MatchmakingService.Search:input_type -> matchmaking.v1.SearchRequest
 	2, // 1: matchmaking.v1.MatchmakingService.Cancel:input_type -> matchmaking.v1.CancelRequest
 	4, // 2: matchmaking.v1.MatchmakingService.GetStatus:input_type -> matchmaking.v1.GetStatusRequest
@@ -389,26 +399,26 @@ var file_proto_matchmaking_v1_matchmaking_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_proto_matchmaking_v1_matchmaking_proto_init() }
-func file_proto_matchmaking_v1_matchmaking_proto_init() {
-	if File_proto_matchmaking_v1_matchmaking_proto != nil {
+func init() { file_matchmaking_v1_matchmaking_proto_init() }
+func file_matchmaking_v1_matchmaking_proto_init() {
+	if File_matchmaking_v1_matchmaking_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_matchmaking_v1_matchmaking_proto_rawDesc), len(file_proto_matchmaking_v1_matchmaking_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_matchmaking_v1_matchmaking_proto_rawDesc), len(file_matchmaking_v1_matchmaking_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_matchmaking_v1_matchmaking_proto_goTypes,
-		DependencyIndexes: file_proto_matchmaking_v1_matchmaking_proto_depIdxs,
-		MessageInfos:      file_proto_matchmaking_v1_matchmaking_proto_msgTypes,
+		GoTypes:           file_matchmaking_v1_matchmaking_proto_goTypes,
+		DependencyIndexes: file_matchmaking_v1_matchmaking_proto_depIdxs,
+		MessageInfos:      file_matchmaking_v1_matchmaking_proto_msgTypes,
 	}.Build()
-	File_proto_matchmaking_v1_matchmaking_proto = out.File
-	file_proto_matchmaking_v1_matchmaking_proto_goTypes = nil
-	file_proto_matchmaking_v1_matchmaking_proto_depIdxs = nil
+	File_matchmaking_v1_matchmaking_proto = out.File
+	file_matchmaking_v1_matchmaking_proto_goTypes = nil
+	file_matchmaking_v1_matchmaking_proto_depIdxs = nil
 }

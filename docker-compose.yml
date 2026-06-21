@@ -3,7 +3,7 @@ services:
   #                          DATABASES & INFRASTRUCTURE
   # ============================================================================
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.8-alpine
     container_name: postgres
     restart: unless-stopped
     environment:
@@ -19,8 +19,8 @@ services:
         "-c",
         "effective_cache_size=256MB",
       ]
-    ports:
-      - "${POSTGRES_BIND_ADDRESS}:${POSTGRES_PORT}:5432"
+    # ports:
+    #   - "${POSTGRES_BIND_ADDRESS}:${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -41,11 +41,11 @@ services:
           memory: 128M
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_BIND_ADDRESS}:${REDIS_PORT}:6379"
+    # ports:
+    #   - "${REDIS_BIND_ADDRESS}:${REDIS_PORT}:6379"
     command:
       [
         "redis-server",
@@ -73,7 +73,7 @@ services:
           memory: 32M
 
   nats:
-    image: nats:2-alpine
+    image: nats:2.11-alpine
     container_name: nats
     restart: unless-stopped
     command: ["-js"]
@@ -125,11 +125,12 @@ services:
           cpus: "0.05"
           memory: 64M
 
+
   # ============================================================================
   #                          DATABASE MIGRATIONS PIPELINE
   # ============================================================================
   migrate-user:
-    image: migrate/migrate:v4.17.0
+    image: migrate/migrate:v4.18.3
     container_name: migrate-user
     volumes:
       - ./services/user-service/migrations:/migrations
@@ -144,7 +145,7 @@ services:
       - nektokz-network
 
   migrate-chat:
-    image: migrate/migrate:v4.17.0
+    image: migrate/migrate:v4.18.3
     container_name: migrate-chat
     volumes:
       - ./services/chat-service/migrations:/migrations
@@ -159,7 +160,7 @@ services:
       - nektokz-network
 
   migrate-moderation:
-    image: migrate/migrate:v4.17.0
+    image: migrate/migrate:v4.18.3
     container_name: migrate-moderation
     volumes:
       - ./services/moderation-service/migrations:/migrations
@@ -225,7 +226,7 @@ services:
       PORT: ${USER_SERVICE_PORT}
       GRPC_PORT: ${USER_SERVICE_GRPC_PORT}
       REPO_DRIVER: ${USER_REPO_DRIVER}
-      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/users_db?sslmode=disable
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/users_db?sslmode=disable&pool_max_conns=50&pool_min_conns=10&pool_max_conn_idle_time=5m
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
@@ -303,10 +304,11 @@ services:
       PORT: ${CHAT_SERVICE_PORT}
       GRPC_PORT: ${CHAT_SERVICE_GRPC_PORT}
       REPO_DRIVER: ${CHAT_REPO_DRIVER}
-      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/chat_db?sslmode=disable
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/chat_db?sslmode=disable&pool_max_conns=50&pool_min_conns=10&pool_max_conn_idle_time=5m
       MODERATION_SERVICE_URL: http://moderation-service:${MODERATION_SERVICE_PORT}
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}
+
     depends_on:
       postgres:
         condition: service_healthy
@@ -339,7 +341,7 @@ services:
       PORT: ${MODERATION_SERVICE_PORT}
       GRPC_PORT: ${MODERATION_SERVICE_GRPC_PORT}
       REPO_DRIVER: ${MODERATION_REPO_DRIVER}
-      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/moderation_db?sslmode=disable
+      DB_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/moderation_db?sslmode=disable&pool_max_conns=50&pool_min_conns=10&pool_max_conn_idle_time=5m
       USER_SERVICE_URL: http://user-service:${USER_SERVICE_PORT}
       CHAT_SERVICE_URL: http://chat-service:${CHAT_SERVICE_PORT}
       NOTIFICATION_SERVICE_URL: http://notification-service:${NOTIFICATION_SERVICE_PORT}
@@ -410,7 +412,7 @@ services:
     container_name: web-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3002:3000"
     environment:
       PORT: 3000
     depends_on:
@@ -486,7 +488,7 @@ services:
     container_name: grafana
     restart: always
     ports:
-      - "${GRAFANA_BIND_ADDRESS}:3001:3000"
+      - "${GRAFANA_BIND_ADDRESS}:3003:3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
@@ -607,3 +609,4 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+

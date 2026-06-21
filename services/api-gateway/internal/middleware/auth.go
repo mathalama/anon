@@ -72,6 +72,7 @@ func Auth(secret string) func(http.Handler) http.Handler {
 func isPublicPath(path string) bool {
 	return strings.HasSuffix(path, "/health") ||
 		strings.Contains(path, "/docs") ||
+		strings.HasPrefix(path, "/api/v1/storage") ||
 		slices.Contains(publicPaths, path)
 }
 

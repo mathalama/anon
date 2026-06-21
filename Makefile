@@ -4,7 +4,7 @@
 SERVICES = api-gateway user-service chat-service matchmaking-service moderation-service notification-service
 
 help:
-	@echo "NektoKZ Makefile"
+	@echo "Mathalama Talk Makefile"
 	@echo "Targets:"
 	@echo "  build          - Build all services"
 	@echo "  build-check    - Quick go build for all services"
@@ -31,7 +31,7 @@ help:
 build:
 	@for svc in $(SERVICES); do \
 		echo "Building $$svc..."; \
-		cd services/$$svc && CGO_ENABLED=0 go build -mod=vendor -o ../../bin/$$svc ./cmd/main.go && cd ../..; \
+		cd services/$$svc && CGO_ENABLED=0 go build -o ../../bin/$$svc ./cmd/main.go && cd ../..; \
 	done
 	@echo "All services built successfully"
 
@@ -49,10 +49,10 @@ test:
 	done
 
 up: up-infra up-services
-	@echo "Project NektoKZ is up and running"
+	@echo "Project Mathalama Talk is up and running"
 
 up-build: up-infra up-services-build
-	@echo "Project NektoKZ is up and running (built)"
+	@echo "Project Mathalama Talk is up and running (built)"
 
 up-infra:
 	docker compose up -d postgres redis nats coturn jaeger

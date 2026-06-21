@@ -86,13 +86,14 @@ type SearchFilter = {
   my_gender: 'male' | 'female' | '';
   gender: 'any' | 'male' | 'female' | '';
   mode: 'text' | 'voice' | '';
+  room_topic?: string;
 };
 
 export const api = {
-  createAnonymous: (deviceId: string) => 
+  createAnonymous: (deviceId: string, turnstileToken?: string) => 
     fetchWithAuth(API_ENDPOINTS.USERS.ANONYMOUS, {
       method: 'POST',
-      body: JSON.stringify({ device_id: deviceId }),
+      body: JSON.stringify({ device_id: deviceId, 'cf-turnstile-response': turnstileToken }),
     }),
   getMe: () => fetchWithAuth(API_ENDPOINTS.USERS.ME),
   updateMe: (gender: string, interests: string[]) =>
@@ -101,15 +102,18 @@ export const api = {
       body: JSON.stringify({ gender, interests }),
     }),
   
-  search: (filter: SearchFilter) =>
+  search: (filter: SearchFilter, signal?: AbortSignal) =>
     fetchWithAuth(API_ENDPOINTS.MATCH.SEARCH, {
       method: 'POST',
       body: JSON.stringify({ filter }),
+      signal,
     }),
   
   getStatus: () => fetchWithAuth(API_ENDPOINTS.MATCH.STATUS),
   
   cancelSearch: () => fetchWithAuth(API_ENDPOINTS.MATCH.SEARCH, { method: 'DELETE' }),
+
+  next: () => fetchWithAuth(API_ENDPOINTS.MATCH.NEXT, { method: 'POST' }),
 
   reportUser: (roomId: string, reportedUserId: string, reason: string) =>
     fetchWithAuth(API_ENDPOINTS.REPORT.REPORT, {
@@ -120,6 +124,7 @@ export const api = {
         reason,
       }),
     }),
+
   
   getMatchSSEUrl: (token: string) =>
     `${API_BASE}${API_ENDPOINTS.MATCH.STATUS_EVENTS}?token=${encodeURIComponent(token || '')}`,

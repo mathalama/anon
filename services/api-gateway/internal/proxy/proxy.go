@@ -47,7 +47,12 @@ func (p *Proxy) AddTarget(pathPrefix, targetURL string) error {
 		}
 
 		// Strip the /api/v1 prefix
-		if strings.HasPrefix(req.URL.Path, "/api/v1") {
+		if strings.HasPrefix(req.URL.Path, "/api/v1/storage") {
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/api/v1/storage")
+			if req.URL.Path == "" {
+				req.URL.Path = "/"
+			}
+		} else if strings.HasPrefix(req.URL.Path, "/api/v1") {
 			req.URL.Path = strings.TrimPrefix(req.URL.Path, "/api/v1")
 			if req.URL.Path == "" {
 				req.URL.Path = "/"

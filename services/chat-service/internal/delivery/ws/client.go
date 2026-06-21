@@ -21,6 +21,7 @@ const (
 
 func (c *Client) ReadPump() {
 	defer func() {
+		_ = c.endRoom(context.Background())
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
@@ -34,9 +35,11 @@ func (c *Client) ReadPump() {
 		}
 		var in ClientMessage
 		if err := json.Unmarshal(message, &in); err != nil {
+			log.Error().Err(err).Str("user_id", c.UserID).Msg("invalid json")
 			c.sendError("BAD_REQUEST", "invalid json")
 			continue
 		}
+		log.Info().Str("user_id", c.UserID).RawJSON("msg", message).Msg("Received WS message")
 
 		switch in.Type {
 		case "ping":
@@ -84,7 +87,11 @@ func (c *Client) ReadPump() {
 			MessagesProcessed.Inc()
 
 			ts := time.Now().Unix()
-			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{Type: "message", Content: content, Timestamp: ts})
+			c.hub.BroadcastToRoom(c.RoomID, c.UserID, ServerMessage{
+				Type:      "message",
+				Content:   content,
+				Timestamp: ts,
+			})
 
 		case "next":
 			if err := c.endRoom(context.Background()); err != nil {
